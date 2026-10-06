@@ -13,7 +13,10 @@ RUN corepack enable
 RUN --mount=type=cache,id=agentgateway-ui-pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
-RUN pnpm build
+# Defaults keep the UI at /ui; set both to serve it behind a proxy prefix.
+ARG UI_BASE=/ui/
+ARG UI_API_BASE=
+RUN AGENTGATEWAY_UI_BASE="${UI_BASE}" VITE_AGENTGATEWAY_API="${UI_API_BASE}" pnpm build
 
 FROM docker.io/library/rust:1.99.0-trixie AS musl-builder
 

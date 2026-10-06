@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => ({
-	base: mode === 'e2e' ? '/' : '/ui/',
+	// AGENTGATEWAY_UI_BASE serves the UI behind a path prefix, e.g. /agentgateway/ui/.
+	base: mode === 'e2e' ? '/' : process.env.AGENTGATEWAY_UI_BASE || '/ui/',
 	plugins: [
 		react(),
 		{
