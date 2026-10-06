@@ -164,6 +164,9 @@ pub struct FunctionResponse {
 	pub id: Option<String>,
 	#[serde(default)]
 	pub response: serde_json::Value,
+	/// Gemini 3 multimodal function response: `inlineData`/`fileData` parts nested in the response.
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub parts: Vec<Part>,
 	#[serde(flatten, default)]
 	pub rest: serde_json::Value,
 }

@@ -2641,13 +2641,75 @@ fn msg_tool_result_and_text_split_into_separate_contents() {
 }
 
 #[test]
-fn msg_tool_result_with_image_is_rejected() {
-	// Gemini's functionResponse has no `parts`, so an image in a tool_result cannot be carried.
-	// Reject rather than drop it, matching conversion::responses: answering as if the model had
-	// seen a screenshot it never received is worse than a clear failure.
+fn msg_tool_result_image_and_pdf_become_function_response_parts() {
+	// Claude Code's Read tool returns images and PDFs inside tool_result. Gemini 3 carries them as
+	// inlineData parts nested in functionResponse, which must stay the only part of its entry.
+	let g = to_gemini_msg(json!({
+		"model": "gemini-3.8-flash",
+		"max_tokens": 1024,
+		"messages": [
+			{ "role": "user", "content": "Screenshot?" },
+			{ "role": "assistant", "content": [
+				{ "type": "tool_use", "id": "toolu_1", "name": "grab", "input": {} }
+			]},
+			{ "role": "user", "content": [
+				{ "type": "tool_result", "tool_use_id": "toolu_1", "content": [
+					{ "type": "text", "text": "captured" },
+					{ "type": "image", "source": { "type": "base64", "media_type": "image/png",
+						"data": "iVBORw0KGgo=" } },
+					{ "type": "document", "source": { "type": "base64", "media_type": "application/pdf",
+						"data": "JVBERi0=" } }
+				]}
+			]}
+		],
+		"tools": [{ "name": "grab", "input_schema": { "type": "object" } }]
+	}));
+
+	let entry = &g["contents"][2];
+	assert_eq!(entry["parts"].as_array().unwrap().len(), 1, "got: {g}");
+	let fr = &entry["parts"][0]["functionResponse"];
+	assert_eq!(fr["name"], "grab");
+	assert_eq!(fr["response"]["content"], "captured");
+	assert_eq!(
+		fr["parts"],
+		json!([
+			{ "inlineData": { "mimeType": "image/png", "data": "iVBORw0KGgo=" } },
+			{ "inlineData": { "mimeType": "application/pdf", "data": "JVBERi0=" } }
+		]),
+		"got: {g}"
+	);
+}
+
+#[test]
+fn msg_tool_result_text_only_has_no_parts_field() {
+	let g = to_gemini_msg(json!({
+		"model": "gemini-3.8-flash",
+		"max_tokens": 1024,
+		"messages": [
+			{ "role": "user", "content": "Go" },
+			{ "role": "assistant", "content": [
+				{ "type": "tool_use", "id": "toolu_1", "name": "grab", "input": {} }
+			]},
+			{ "role": "user", "content": [
+				{ "type": "tool_result", "tool_use_id": "toolu_1", "content": [
+					{ "type": "text", "text": "a" }, { "type": "text", "text": "b" }
+				]}
+			]}
+		],
+		"tools": [{ "name": "grab", "input_schema": { "type": "object" } }]
+	}));
+	let fr = &g["contents"][2]["parts"][0]["functionResponse"];
+	assert_eq!(fr["response"]["content"], "ab");
+	assert!(fr.get("parts").is_none(), "got: {g}");
+}
+
+#[test]
+fn msg_tool_result_with_unfetchable_image_is_rejected() {
+	// Vertex cannot fetch http(s) URLs; reject rather than drop, so the model never answers about
+	// an image it never received.
 	let err = from_messages::translate(
 		&msg_req(json!({
-			"model": "gemini-2.5-pro",
+			"model": "gemini-3.8-flash",
 			"max_tokens": 1024,
 			"messages": [
 				{ "role": "user", "content": "Screenshot?" },
@@ -2656,9 +2718,7 @@ fn msg_tool_result_with_image_is_rejected() {
 				]},
 				{ "role": "user", "content": [
 					{ "type": "tool_result", "tool_use_id": "toolu_1", "content": [
-						{ "type": "text", "text": "captured" },
-						{ "type": "image", "source": { "type": "base64", "media_type": "image/png",
-							"data": "iVBORw0KGgo=" } }
+						{ "type": "image", "source": { "type": "url", "url": "https://example.com/a.png" } }
 					]}
 				]}
 			],
@@ -2666,7 +2726,7 @@ fn msg_tool_result_with_image_is_rejected() {
 		})),
 		None,
 	);
-	let err = err.expect_err("image tool_result must be rejected");
+	let err = err.expect_err("unfetchable image tool_result must be rejected");
 	// Load-bearing: classify_ai_request maps UnsupportedConversion to 400, InvalidResponse to 503.
 	assert!(
 		matches!(err, crate::AIError::UnsupportedConversion(_)),

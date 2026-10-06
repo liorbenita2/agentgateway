@@ -392,6 +392,7 @@ pub mod from_completions {
 							name,
 							id: base_id,
 							response,
+							parts: Vec::new(),
 							rest: Value::Null,
 						},
 						rest: Value::Null,
@@ -1334,7 +1335,7 @@ pub mod from_messages {
 									))));
 								};
 								let name = name.clone();
-								let text = tool_result_text(content)?;
+								let (text, media) = tool_result_parts(content)?;
 								let mut response = json!({ "content": text });
 								if *is_error == Some(true) {
 									response["is_error"] = json!(true);
@@ -1346,6 +1347,7 @@ pub mod from_messages {
 										name,
 										id: Some(base_id),
 										response,
+										parts: media,
 										rest: Value::Null,
 									},
 									rest: Value::Null,
@@ -1417,29 +1419,52 @@ pub mod from_messages {
 		Ok(contents)
 	}
 
-	/// Flatten a tool result to the text Gemini's `functionResponse.response` can carry.
-	///
-	/// `vg::FunctionResponse` is `{name, id, response}` with no `parts`, so an image or document
-	/// has nowhere to go. Reject rather than drop, matching `conversion::responses`: silently
-	/// discarding the content would let the model answer as if it had seen a screenshot it never
-	/// received. `UnsupportedConversion` is load-bearing here, since `classify_ai_request` maps it
-	/// to 400.
-	fn tool_result_text(
+	/// Split a tool result into the text for `functionResponse.response` and the media for
+	/// `functionResponse.parts` (Gemini 3 multimodal function responses). Anything that cannot be
+	/// carried is rejected rather than dropped, so the model never answers about a screenshot it
+	/// never received. `UnsupportedConversion` is load-bearing: `classify_ai_request` maps it to 400.
+	fn tool_result_parts(
 		content: &types::messages::typed::ToolResultContent,
-	) -> Result<String, AIError> {
+	) -> Result<(String, Vec<vg::Part>), AIError> {
 		use types::messages::typed::{ToolResultContent, ToolResultContentPart};
-		match content {
-			ToolResultContent::Text(s) => Ok(s.clone()),
-			ToolResultContent::Array(parts) => parts
-				.iter()
-				.map(|p| match p {
-					ToolResultContentPart::Text { text, .. } => Ok(text.as_str()),
-					_ => Err(AIError::UnsupportedConversion(strng::literal!(
-						"messages non-text tool_result content cannot be represented by gemini"
-					))),
-				})
-				.collect(),
+		let parts = match content {
+			ToolResultContent::Text(s) => return Ok((s.clone(), Vec::new())),
+			ToolResultContent::Array(parts) => parts,
+		};
+		let unsupported = |what: &str| {
+			AIError::UnsupportedConversion(strng::new(format!(
+				"messages tool_result {what} cannot be represented by gemini"
+			)))
+		};
+		let mut text = String::new();
+		let mut media = Vec::new();
+		for p in parts {
+			match p {
+				ToolResultContentPart::Text { text: t, .. } => text.push_str(t),
+				ToolResultContentPart::Image { source, .. } => {
+					let url = anthropic_source_to_url(source).ok_or_else(|| unsupported("image source"))?;
+					media.push(image_part(Some(&json!({ "url": url })))?);
+				},
+				ToolResultContentPart::Document { source, .. } => {
+					match source.get("type").and_then(Value::as_str) {
+						Some("text") => text.push_str(
+							source
+								.get("data")
+								.and_then(Value::as_str)
+								.unwrap_or_default(),
+						),
+						Some("base64") => {
+							let url =
+								anthropic_source_to_url(source).ok_or_else(|| unsupported("document source"))?;
+							media.push(image_part(Some(&json!({ "url": url })))?);
+						},
+						_ => return Err(unsupported("document source")),
+					}
+				},
+				_ => return Err(unsupported("non-text, non-media content")),
+			}
 		}
+		Ok((text, media))
 	}
 
 	fn build_tools(req: &types::messages::typed::Request) -> Vec<vg::Tool> {
