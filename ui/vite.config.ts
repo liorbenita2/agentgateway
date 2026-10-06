@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ command, mode }) => ({
-	base: mode === 'e2e' ? '/' : command === 'build' ? '/ui/' : './',
+	// AGENTGATEWAY_UI_BASE serves the UI behind a path prefix, e.g. /agentgateway/ui/.
+	base:
+		mode === 'e2e' ? '/' : command === 'build' ? process.env.AGENTGATEWAY_UI_BASE || '/ui/' : './',
 	plugins: [react()],
 	resolve: {
 		alias: {
