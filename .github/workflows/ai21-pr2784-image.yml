@@ -19,14 +19,17 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # One tag per commit, so a push never overwrites the image a running release pins.
+      - id: tag
+        run: echo "tag=v1.6.0-pr2784-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/agentgateway:v1.6.0-pr2784-fc3ba178
+          tags: ghcr.io/${{ github.repository_owner }}/agentgateway:${{ steps.tag.outputs.tag }}
           build-args: |
-            VERSION=v1.6.0-pr2784-fc3ba178
+            VERSION=${{ steps.tag.outputs.tag }}
             GIT_REVISION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
