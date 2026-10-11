@@ -335,10 +335,10 @@ export const FALLBACK_PARAMS: PriceParams = {
 	region: 'global',
 	batch: false,
 	ttl: '5m',
-	inputTokens: 20_000,
-	cacheReadTokens: 0,
-	cacheWriteTokens: 0,
-	outputTokens: 2_000,
+	inputTokens: 5_000,
+	cacheReadTokens: 40_000,
+	cacheWriteTokens: 5_000,
+	outputTokens: 1_500,
 	webSearches: 0
 };
 
@@ -549,8 +549,20 @@ const PROVIDER_DEFAULTS: Record<PriceProvider, Partial<PriceParams>> = {
 	other: {}
 };
 
-export function defaultParams(provider: PriceProvider): PriceParams {
-	return { ...FALLBACK_PARAMS, ...PROVIDER_DEFAULTS[provider] };
+// A typical cached agent turn; cache tokens a card can't price start as plain input.
+export function defaultParams(provider: PriceProvider, rates?: ModelRates): PriceParams {
+	const d = { ...FALLBACK_PARAMS, ...PROVIDER_DEFAULTS[provider] };
+	if (!rates) return d;
+	const o = paramOptions(rates);
+	if (!o.cacheRead) {
+		d.inputTokens += d.cacheReadTokens;
+		d.cacheReadTokens = 0;
+	}
+	if (!o.cacheWrite) {
+		d.inputTokens += d.cacheWriteTokens;
+		d.cacheWriteTokens = 0;
+	}
+	return d;
 }
 
 // The defaults behind a model's prices and the params the playground lets you change.
@@ -559,7 +571,7 @@ export function describeDefaults(
 	provider: PriceProvider
 ): { defaults: string[]; adjustable: string[] } {
 	const o = paramOptions(rates);
-	const d = defaultParams(provider);
+	const d = defaultParams(provider, rates);
 	const long = longTier(rates);
 	const defaults = [
 		`Service tier: ${d.serviceTier}`,
