@@ -25,6 +25,8 @@ import {
 	describeDefaults,
 	fitParams,
 	indexRates,
+	LINE_LABELS,
+	type LongTier,
 	longTier,
 	PROVIDER_ICONS,
 	PROVIDER_LABELS,
@@ -46,7 +48,7 @@ const COLUMN_HELP: Record<string, string> = {
 		'Tokens written to the cache with the default 5-minute TTL (Anthropic cache_control without ttl), $ per 1M.',
 	write1h:
 		'Writes with cache_control.ttl "1h", $ per 1M. agentgateway\'s own llm.cost prices these at the 5m rate; the invoice and our cost views use this one.',
-	long: 'Prompt size above which the whole request is billed at the long-context rates (shown as the input multiplier). Our BigQuery cost rollup prices base context only.',
+	long: 'Input / output $ per 1M once the prompt passes the threshold; the whole request moves to these rates. Thresholds and multipliers differ per provider and model: the (i) on each cell lists every line. Our BigQuery cost rollup prices base context only.',
 	routes:
 		'API paths the gateway accepts for this model. Native means the provider speaks that API; the rest are translated by agentgateway.'
 };
@@ -238,9 +240,7 @@ function ModelRow(props: { model: PricedModel; route: ApiRoute; onOpen: () => vo
 					<PriceCell value={perMillion(baseRow(rates, 'cache_read'))} />
 					<PriceCell value={perMillion(baseRow(rates, 'cache_write_5m'))} />
 					<PriceCell value={perMillion(baseRow(rates, 'cache_write_1h'))} />
-					<td className="numeric">
-						{long ? `>${formatTokens(long.threshold)} · ${trimNumber(long.inputFactor)}×` : '—'}
-					</td>
+					<td className="numeric">{long ? <LongCell long={long} /> : '—'}</td>
 				</>
 			) : (
 				<td colSpan={6} className="price-missing">
@@ -260,6 +260,52 @@ function ModelRow(props: { model: PricedModel; route: ApiRoute; onOpen: () => vo
 				</Tooltip>
 			</td>
 		</tr>
+	);
+}
+
+function LongCell(props: { long: LongTier }) {
+	const { long } = props;
+	const input = long.lines.find(l => l.lineItem === 'input');
+	const output = long.lines.find(l => l.lineItem === 'output');
+	return (
+		<span className="price-th price-long">
+			<span>
+				{input ? `$${trimNumber(input.long)}` : '—'} /{' '}
+				{output ? `$${trimNumber(output.long)}` : '—'}
+				<small>over {formatTokens(long.threshold)}</small>
+			</span>
+			<Tooltip
+				side="left"
+				content={
+					<div className="price-tip">
+						<strong>Long context over {long.threshold.toLocaleString()} prompt tokens</strong>
+						<span>
+							Prompt = input + cache read + cache write. Past it, every line of the request is
+							billed at:
+						</span>
+						<ul>
+							{long.lines.map(l => (
+								<li key={l.lineItem}>
+									{LINE_LABELS[l.lineItem]}: ${trimNumber(l.long)}/1M ({trimNumber(l.factor)}× of $
+									{trimNumber(l.base)})
+								</li>
+							))}
+						</ul>
+						<span>
+							Standard tier, global region. Our BigQuery cost rollup prices base context only.
+						</span>
+					</div>
+				}
+			>
+				<button
+					className="help-icon price-tip-button"
+					type="button"
+					aria-label={`Long-context rates over ${long.threshold} tokens`}
+				>
+					<HelpCircle size={13} aria-hidden="true" />
+				</button>
+			</Tooltip>
+		</span>
 	);
 }
 
