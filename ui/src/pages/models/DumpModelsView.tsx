@@ -21,10 +21,10 @@ import {
 	type ApiRoute,
 	baseRow,
 	calculate,
-	FALLBACK_PARAMS,
+	defaultParams,
+	describeDefaults,
 	fitParams,
 	indexRates,
-	loadDefaults,
 	longTier,
 	PROVIDER_ICONS,
 	PROVIDER_LABELS,
@@ -32,8 +32,7 @@ import {
 	type PriceParams,
 	paramOptions,
 	perMillion,
-	priceModels,
-	saveDefaults
+	priceModels
 } from '@/pages/models/pricing';
 import { routeBackendLabel } from '@/pages/traffic/TrafficConfigDumpPanel';
 
@@ -214,7 +213,10 @@ function ModelRow(props: { model: PricedModel; route: ApiRoute; onOpen: () => vo
 		<tr>
 			<td>
 				<div className="resource-name-cell">
-					<strong>{model.model.name}</strong>
+					<span className="price-th">
+						<strong>{model.model.name}</strong>
+						{rates ? <DefaultsTip model={model} /> : null}
+					</span>
 					{model.upstream !== model.model.name ? <small>{model.upstream}</small> : null}
 				</div>
 			</td>
@@ -261,6 +263,47 @@ function ModelRow(props: { model: PricedModel; route: ApiRoute; onOpen: () => vo
 	);
 }
 
+function DefaultsTip(props: { model: PricedModel }) {
+	const rates = props.model.rates;
+	if (!rates) return null;
+	const { defaults, adjustable } = describeDefaults(rates, props.model.provider);
+	const label = `${PROVIDER_LABELS[props.model.provider]} · ${props.model.upstream}`;
+	return (
+		<Tooltip
+			side="right"
+			content={
+				<div className="price-tip">
+					<strong>{label}</strong>
+					<span>Prices shown with</span>
+					<ul>
+						{defaults.map(line => (
+							<li key={line}>{line}</li>
+						))}
+					</ul>
+					{adjustable.length ? (
+						<>
+							<span>The playground can change</span>
+							<ul>
+								{adjustable.map(line => (
+									<li key={line}>{line}</li>
+								))}
+							</ul>
+						</>
+					) : null}
+				</div>
+			}
+		>
+			<button
+				className="help-icon price-tip-button"
+				type="button"
+				aria-label={`Default price params for ${label}`}
+			>
+				<HelpCircle size={13} aria-hidden="true" />
+			</button>
+		</Tooltip>
+	);
+}
+
 function PriceCell(props: { value: number | null }) {
 	return <td className="numeric">{props.value === null ? '—' : `$${trimNumber(props.value)}`}</td>;
 }
@@ -275,8 +318,7 @@ function unpricedReason(model: PricedModel) {
 
 function PricePlayground(props: { model: PricedModel }) {
 	const { model } = props;
-	const [params, setParams] = useState<PriceParams>(() => loadDefaults(model.provider));
-	const [saved, setSaved] = useState<string | null>(null);
+	const [params, setParams] = useState<PriceParams>(() => defaultParams(model.provider));
 	const rates = model.rates;
 	if (!rates) {
 		return (
@@ -290,14 +332,15 @@ function PricePlayground(props: { model: PricedModel }) {
 	const fitted = fitParams(rates, params);
 	const result = calculate(rates, fitted);
 	const set = <K extends keyof PriceParams>(key: K, value: PriceParams[K]) => {
-		setSaved(null);
 		setParams(current => ({ ...current, [key]: value }));
 	};
-	const providerLabel = PROVIDER_LABELS[model.provider];
 
 	return (
 		<div className="price-playground">
-			<span className="field-label">Price playground</span>
+			<span className="field-label price-th">
+				Price playground
+				<DefaultsTip model={model} />
+			</span>
 			<div className="price-params">
 				<NumberField
 					label="Input tokens"
@@ -466,30 +509,10 @@ function PricePlayground(props: { model: PricedModel }) {
 				<button
 					className="button"
 					type="button"
-					onClick={() => setSaved(saveDefaults(model.provider, params) ? 'saved' : 'failed')}
+					onClick={() => setParams(defaultParams(model.provider))}
 				>
-					Save as {providerLabel} default
+					Back to defaults
 				</button>
-				<button
-					className="button"
-					type="button"
-					onClick={() => {
-						saveDefaults(model.provider, null);
-						setParams(FALLBACK_PARAMS);
-						setSaved('reset');
-					}}
-				>
-					Reset
-				</button>
-				{saved ? (
-					<small>
-						{saved === 'saved'
-							? `Saved for every ${providerLabel} model, in this browser.`
-							: saved === 'reset'
-								? 'Back to the built-in defaults.'
-								: 'This browser does not allow saving.'}
-					</small>
-				) : null}
 			</div>
 		</div>
 	);
