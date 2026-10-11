@@ -277,19 +277,42 @@ export function baseRow(rates: ModelRates, lineItem: string): RateRow | undefine
 	);
 }
 
-export function longTier(rates: ModelRates): { threshold: number; inputFactor: number } | null {
-	const long = rates.standard.find(
+export const LINE_LABELS: Record<string, string> = {
+	input: 'Input',
+	output: 'Output',
+	cache_read: 'Cache read',
+	cache_write_5m: 'Cache write 5m',
+	cache_write_1h: 'Cache write 1h'
+};
+
+export interface LongTier {
+	threshold: number;
+	inputFactor: number;
+	lines: Array<{ lineItem: string; base: number; long: number; factor: number }>;
+}
+
+// Standard-tier, global long-context rates in $/1M, each with its multiplier over base.
+export function longTier(rates: ModelRates): LongTier | null {
+	const rows = rates.standard.filter(
 		r =>
-			r.line_item === 'input' &&
-			r.service_tier === 'standard' &&
 			r.context_tier === 'long' &&
-			r.region === 'global'
+			r.service_tier === 'standard' &&
+			r.region === 'global' &&
+			r.unit === 'token'
 	);
-	const base = baseRow(rates, 'input');
-	if (!long || !base) return null;
+	if (!rows.length) return null;
+	const lines = Object.keys(LINE_LABELS).flatMap(lineItem => {
+		const long = rows.find(r => r.line_item === lineItem);
+		const base = baseRow(rates, lineItem);
+		if (!long || !base) return [];
+		const b = Number(base.rate_per_unit);
+		const l = Number(long.rate_per_unit);
+		return [{ lineItem, base: b * PER_MILLION, long: l * PER_MILLION, factor: b ? l / b : 0 }];
+	});
 	return {
-		threshold: long.context_min_tokens,
-		inputFactor: Number(long.rate_per_unit) / Number(base.rate_per_unit)
+		threshold: rows[0].context_min_tokens,
+		inputFactor: lines.find(l => l.lineItem === 'input')?.factor ?? 0,
+		lines
 	};
 }
 
@@ -557,7 +580,9 @@ export function describeDefaults(
 	if (o.batch) adjustable.push('Batch API job');
 	if (long) {
 		adjustable.push(
-			`Long context: prompt over ${long.threshold.toLocaleString()} tokens, input ${Number(long.inputFactor.toPrecision(3))}×`
+			`Long context: prompt over ${long.threshold.toLocaleString()} tokens (${long.lines
+				.map(l => `${LINE_LABELS[l.lineItem].toLowerCase()} ${Number(l.factor.toPrecision(3))}×`)
+				.join(', ')})`
 		);
 	}
 	if (o.cacheRead) adjustable.push('Cache read tokens');
