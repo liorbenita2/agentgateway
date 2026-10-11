@@ -153,6 +153,7 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 					title={selected.model.name}
 					headerActions={<span className="badge">{PROVIDER_LABELS[selected.provider]}</span>}
 					onClose={() => setSelectedKey(null)}
+					dirty={false}
 				>
 					<div className="drawer-summary-list">
 						<div>
@@ -364,7 +365,9 @@ function unpricedReason(model: PricedModel) {
 
 function PricePlayground(props: { model: PricedModel }) {
 	const { model } = props;
-	const [params, setParams] = useState<PriceParams>(() => defaultParams(model.provider));
+	const [params, setParams] = useState<PriceParams>(() =>
+		defaultParams(model.provider, model.rates ?? undefined)
+	);
 	const rates = model.rates;
 	if (!rates) {
 		return (
@@ -555,7 +558,7 @@ function PricePlayground(props: { model: PricedModel }) {
 				<button
 					className="button"
 					type="button"
-					onClick={() => setParams(defaultParams(model.provider))}
+					onClick={() => setParams(defaultParams(model.provider, rates))}
 				>
 					Back to defaults
 				</button>
