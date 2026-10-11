@@ -511,26 +511,56 @@ export function calculate(rates: ModelRates, params: PriceParams): CostResult {
 	return { lines, total, contextTier, promptTokens, divergences, warnings };
 }
 
-// --- Per-provider defaults (this browser only) --------------------------------------------
+// --- Defaults, kept in code ---------------------------------------------------------------
 
-const DEFAULTS_KEY = 'agw-price-defaults:';
+// Where the playground starts per provider; the table always shows standard tier, base context, global region.
+const PROVIDER_DEFAULTS: Record<PriceProvider, Partial<PriceParams>> = {
+	openai: {},
+	anthropic: {},
+	vertex: {},
+	gemini: {},
+	bedrock: {},
+	together: {},
+	vercel: {},
+	'self-hosted': {},
+	other: {}
+};
 
-export function loadDefaults(provider: PriceProvider): PriceParams {
-	try {
-		const raw = window.localStorage.getItem(DEFAULTS_KEY + provider);
-		if (raw) return { ...FALLBACK_PARAMS, ...(JSON.parse(raw) as Partial<PriceParams>) };
-	} catch {
-		// Storage can be unavailable; the built-in defaults still work.
-	}
-	return FALLBACK_PARAMS;
+export function defaultParams(provider: PriceProvider): PriceParams {
+	return { ...FALLBACK_PARAMS, ...PROVIDER_DEFAULTS[provider] };
 }
 
-export function saveDefaults(provider: PriceProvider, params: PriceParams | null) {
-	try {
-		if (params) window.localStorage.setItem(DEFAULTS_KEY + provider, JSON.stringify(params));
-		else window.localStorage.removeItem(DEFAULTS_KEY + provider);
-		return true;
-	} catch {
-		return false;
+// The defaults behind a model's prices and the params the playground lets you change.
+export function describeDefaults(
+	rates: ModelRates,
+	provider: PriceProvider
+): { defaults: string[]; adjustable: string[] } {
+	const o = paramOptions(rates);
+	const d = defaultParams(provider);
+	const long = longTier(rates);
+	const defaults = [
+		`Service tier: ${d.serviceTier}`,
+		long
+			? `Context: base (prompt up to ${long.threshold.toLocaleString()} tokens)`
+			: 'Context: base (no long tier)',
+		`Region: ${d.region}`
+	];
+	if (o.cacheWrite) defaults.push(`Cache write TTL: ${d.ttl}`);
+	if (o.batch) defaults.push('Batch: off');
+	defaults.push(
+		`Playground start: ${d.inputTokens.toLocaleString()} input, ${d.outputTokens.toLocaleString()} output, ${d.cacheReadTokens.toLocaleString()} cache read, ${d.cacheWriteTokens.toLocaleString()} cache write tokens`
+	);
+	const adjustable: string[] = [];
+	if (o.serviceTiers.length > 1) adjustable.push(`Service tier: ${o.serviceTiers.join(', ')}`);
+	if (o.regions.length > 1) adjustable.push(`Region: ${o.regions.join(', ')}`);
+	if (o.ttl1h) adjustable.push('Cache write TTL: 5m, 1h');
+	if (o.batch) adjustable.push('Batch API job');
+	if (long) {
+		adjustable.push(
+			`Long context: prompt over ${long.threshold.toLocaleString()} tokens, input ${Number(long.inputFactor.toPrecision(3))}×`
+		);
 	}
+	if (o.cacheRead) adjustable.push('Cache read tokens');
+	if (o.webSearch) adjustable.push('Web searches (per request)');
+	return { defaults, adjustable };
 }
