@@ -1,0 +1,29 @@
+import { requestJson } from '@/api/base';
+
+// One rate-card row from config-service's /v1/rates, served by the tools host at <base>/prices.
+export interface RateRow {
+	provider: string;
+	model: string;
+	line_item: string;
+	service_tier: string;
+	context_tier: string;
+	context_min_tokens: number;
+	region: string;
+	unit: string;
+	rate_per_unit: string;
+	price_source: string;
+	source_endpoint_tag: string | null;
+	effective_from: string | null;
+	effective_to: string | null;
+}
+
+export interface RatesResponse {
+	fetch_run_id: string;
+	fetched_at: string;
+	unit: string;
+	rates: RateRow[];
+}
+
+export function listRates() {
+	return requestJson<RatesResponse>('/prices');
+}

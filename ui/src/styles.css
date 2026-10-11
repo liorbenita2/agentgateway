@@ -6354,3 +6354,109 @@ details summary {
 	width: 100%;
 	justify-content: center;
 }
+
+/* Models page: prices by route and the price playground. */
+.price-route-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 14px;
+	margin-bottom: 14px;
+}
+
+.price-route-bar > small,
+.price-actions > small,
+.price-lines small {
+	color: var(--muted);
+}
+
+.price-table {
+	min-width: 1100px;
+}
+
+.price-table .numeric,
+.price-lines .numeric {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.price-th {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.price-provider {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+.badge.muted {
+	opacity: 0.65;
+}
+
+.price-missing {
+	color: var(--muted);
+}
+
+.price-playground {
+	display: grid;
+	gap: 14px;
+	margin-bottom: 18px;
+}
+
+.price-params {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+	gap: 10px 14px;
+}
+
+.price-lines {
+	width: 100%;
+	min-width: 0;
+}
+
+.price-check {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 38px;
+	color: var(--text);
+	font-size: 13px;
+	font-weight: 400;
+	letter-spacing: normal;
+	text-transform: none;
+}
+
+.price-check > input {
+	width: auto;
+}
+
+.price-total > .price-total-cell {
+	border-top: 1px solid var(--line);
+	font-weight: 600;
+}
+
+.price-notes ul {
+	display: grid;
+	gap: 6px;
+	margin: 6px 0 0;
+	padding-left: 18px;
+}
+
+.price-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.price-yaml summary {
+	cursor: pointer;
+	color: var(--muted);
+	font-weight: 600;
+	margin-bottom: 8px;
+}
