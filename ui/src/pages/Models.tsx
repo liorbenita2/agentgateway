@@ -128,10 +128,10 @@ export function ModelsPage() {
 			<div className="page-stack">
 				<PageHeader
 					title="LLM Models"
-					description="Read-only model inventory from the active gateway dump."
+					description="Models by API route, priced from config-service's rate card. Open a model for the price playground."
 				/>
 				<ReadonlyModeBanner />
-				<DumpModelsView models={mode.data.dump.models ?? []} />
+				<DumpModelsView dump={mode.data.dump} />
 			</div>
 		);
 	}
