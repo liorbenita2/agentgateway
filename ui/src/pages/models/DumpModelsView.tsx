@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Calculator, HelpCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { listRates } from '@/api/pricesApi';
+import { type CapsResponse, listCaps, listRates } from '@/api/pricesApi';
 import {
 	Drawer,
 	EmptyState,
@@ -48,6 +48,7 @@ const COLUMN_HELP: Record<string, string> = {
 		'Tokens written to the cache with the default 5-minute TTL (Anthropic cache_control without ttl), $ per 1M.',
 	write1h:
 		'Writes with cache_control.ttl "1h", $ per 1M. agentgateway\'s own llm.cost prices these at the 5m rate; the invoice and our cost views use this one.',
+	cap: 'Daily token cap per model, input / output, shared by every caller and reset at midnight UTC. Input counts uncached tokens only. Over the cap the gateway answers 429 until midnight.',
 	long: 'Input / output $ per 1M once the prompt passes the threshold; the whole request moves to these rates. Thresholds and multipliers differ per provider and model: the (i) on each cell lists every line. Our BigQuery cost rollup prices base context only.',
 	routes:
 		'API paths the gateway accepts for this model. Native means the provider speaks that API; the rest are translated by agentgateway.'
@@ -62,6 +63,13 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 		retry: false,
 		staleTime: 5 * 60_000
 	});
+	const capsQuery = useQuery({
+		queryKey: ['caps'],
+		queryFn: listCaps,
+		retry: false,
+		staleTime: 5 * 60_000
+	});
+	const caps = capsQuery.data ?? null;
 	const rateIndex = useMemo(
 		() => (ratesQuery.data ? indexRates(ratesQuery.data.rates) : null),
 		[ratesQuery.data]
@@ -129,6 +137,7 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 										<HeaderTip label="Write 5m" help={COLUMN_HELP.write5m} numeric />
 										<HeaderTip label="Write 1h" help={COLUMN_HELP.write1h} numeric />
 										<HeaderTip label="Long context" help={COLUMN_HELP.long} numeric />
+										{caps ? <HeaderTip label="Daily cap" help={COLUMN_HELP.cap} numeric /> : null}
 										<th aria-label="Actions" />
 									</tr>
 								</thead>
@@ -138,6 +147,7 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 											key={model.model.key}
 											model={model}
 											route={route}
+											caps={caps}
 											onOpen={() => setSelectedKey(model.model.key)}
 										/>
 									))}
@@ -207,7 +217,12 @@ function HeaderTip(props: { label: string; help: string; numeric?: boolean }) {
 	);
 }
 
-function ModelRow(props: { model: PricedModel; route: ApiRoute; onOpen: () => void }) {
+function ModelRow(props: {
+	model: PricedModel;
+	route: ApiRoute;
+	caps: CapsResponse | null;
+	onOpen: () => void;
+}) {
 	const { model } = props;
 	const support = model.routes.find(r => r.route === props.route);
 	const rates = model.rates;
@@ -248,6 +263,7 @@ function ModelRow(props: { model: PricedModel; route: ApiRoute; onOpen: () => vo
 					{unpricedReason(model)}
 				</td>
 			)}
+			{props.caps ? <CapCell model={model} caps={props.caps} /> : null}
 			<td className="row-actions">
 				<Tooltip content="Price playground">
 					<button
@@ -262,6 +278,73 @@ function ModelRow(props: { model: PricedModel; route: ApiRoute; onOpen: () => vo
 			</td>
 		</tr>
 	);
+}
+
+function CapCell(props: { model: PricedModel; caps: CapsResponse }) {
+	const own = props.caps.models[props.model.model.name];
+	const cap = own ?? props.caps.default;
+	const fmt = (n: number) => (n < 0 ? '∞' : formatCount(n));
+	const rates = props.model.rates;
+	const inRate = rates ? perMillion(baseRow(rates, 'input')) : null;
+	const outRate = rates ? perMillion(baseRow(rates, 'output')) : null;
+	const atCap =
+		cap.input >= 0 && cap.output >= 0 && inRate !== null && outRate !== null
+			? (cap.input * inRate + cap.output * outRate) / 1_000_000
+			: null;
+	return (
+		<td className="numeric">
+			<span className="price-th price-long">
+				<span>
+					{fmt(cap.input)} / {fmt(cap.output)}
+					<small>{own ? 'own cap' : 'default'}</small>
+				</span>
+				<Tooltip
+					side="left"
+					content={
+						<div className="price-tip">
+							<strong>Daily cap for {props.model.model.name}</strong>
+							<ul>
+								<li>
+									Input:{' '}
+									{cap.input < 0 ? 'uncapped' : `${cap.input.toLocaleString()} uncached tokens`}
+								</li>
+								<li>
+									Output: {cap.output < 0 ? 'uncapped' : `${cap.output.toLocaleString()} tokens`}
+								</li>
+							</ul>
+							<span>
+								{own
+									? 'Set for this model in the chart values.'
+									: "No cap of its own; the chart's default applies."}{' '}
+								Shared by every caller, reset at midnight UTC; over it the gateway answers 429.
+							</span>
+							{atCap !== null ? (
+								<span>
+									Both sides at the cap, at the base input/output prices: about $
+									{Math.round(atCap).toLocaleString()} a day (cache reads and writes not included).
+								</span>
+							) : null}
+						</div>
+					}
+				>
+					<button
+						className="help-icon price-tip-button"
+						type="button"
+						aria-label={`Daily cap for ${props.model.model.name}`}
+					>
+						<HelpCircle size={13} aria-hidden="true" />
+					</button>
+				</Tooltip>
+			</span>
+		</td>
+	);
+}
+
+function formatCount(n: number) {
+	if (n >= 1e9) return `${trimNumber(n / 1e9)}B`;
+	if (n >= 1e6) return `${trimNumber(n / 1e6)}M`;
+	if (n >= 1e3) return `${trimNumber(n / 1e3)}k`;
+	return trimNumber(n);
 }
 
 function LongCell(props: { long: LongTier }) {
