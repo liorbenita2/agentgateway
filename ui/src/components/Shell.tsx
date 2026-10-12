@@ -2,6 +2,7 @@ import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-route
 import {
 	BarChart3,
 	Bolt,
+	BookOpen,
 	Bot,
 	Boxes,
 	Braces,
@@ -376,7 +377,8 @@ function navigationGroups(options: {
 			title: 'LLM',
 			items: [
 				{ to: '/llm/models', label: 'Models', icon: Bot },
-				{ to: '/llm/client-setup', label: 'Client Setup', icon: Cable }
+				{ to: '/llm/client-setup', label: 'Client Setup', icon: Cable },
+				{ to: '/llm/catalog', label: 'AI21 catalog', icon: BookOpen }
 			]
 		});
 	}
