@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 
 import { routerBasePath } from '@/basePath';
 import { Shell } from '@/components/Shell';
+import { CatalogPage } from '@/pages/Catalog';
 import { CelPage } from '@/pages/Cel';
 import { ClientSetupPage } from '@/pages/ClientSetup';
 import { CostsPage } from '@/pages/Costs';
@@ -69,6 +70,12 @@ const modelsRoute = createRoute({
 	getParentRoute: () => appRoute,
 	path: '/llm/models',
 	component: ModelsPage
+});
+
+const catalogRoute = createRoute({
+	getParentRoute: () => appRoute,
+	path: '/llm/catalog',
+	component: CatalogPage
 });
 
 const llmGetStartedRoute = createRoute({
@@ -220,6 +227,7 @@ const router = createRouter({
 			dumpPoliciesRoute,
 			llmGetStartedRoute,
 			modelsRoute,
+			catalogRoute,
 			providersRoute,
 			policiesRoute,
 			guardrailsRoute,

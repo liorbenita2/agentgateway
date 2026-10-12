@@ -42,3 +42,32 @@ export interface CapsResponse {
 export function listCaps() {
 	return requestJson<CapsResponse>('/caps');
 }
+
+// The price job's ai21-model-catalog: $ per 1M tokens as decimal strings, served at <base>/catalog.
+export interface CatalogRates {
+	input?: string;
+	output?: string;
+	cacheRead?: string;
+	cacheWrite?: string;
+	cacheWrite1h?: string;
+}
+
+export interface CatalogTier {
+	serviceTier?: string;
+	region?: string;
+	contextOver?: number;
+	rates: CatalogRates;
+}
+
+export interface CatalogModel {
+	rates?: CatalogRates;
+	tiers?: CatalogTier[];
+}
+
+export interface CatalogResponse {
+	providers: Record<string, { models: Record<string, CatalogModel> }>;
+}
+
+export function getCatalog() {
+	return requestJson<CatalogResponse>('/catalog');
+}
