@@ -128,7 +128,7 @@ export function ModelsPage() {
 			<div className="page-stack">
 				<PageHeader
 					title="LLM Models"
-					description="Models by API route, priced from config-service's rate card. Open a model for the price playground."
+					description="Models by API route, priced from config-service's rate card, flagged where the gateway's own catalog bills differently. Open a model for the price playground and the gateway's prices."
 				/>
 				<ReadonlyModeBanner />
 				<DumpModelsView dump={mode.data.dump} />
