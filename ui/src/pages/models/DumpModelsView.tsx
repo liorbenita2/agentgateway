@@ -2,7 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Calculator, HelpCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { type CapsResponse, listCaps, listRates } from '@/api/pricesApi';
+import {
+	type CapsResponse,
+	type CatalogResponse,
+	getCatalog,
+	listCaps,
+	listRates
+} from '@/api/pricesApi';
 import {
 	Drawer,
 	EmptyState,
@@ -16,6 +22,13 @@ import {
 import { ProviderIcon } from '@/components/ProviderIcon';
 import { useStickyQueryParam } from '@/drawerRouteState';
 import type { DumpModel, StoresDump, VirtualModelRouting } from '@/gateway-admin';
+import {
+	billedByGateway,
+	CATALOG_COLUMNS,
+	catalogDiffs,
+	catalogEntry,
+	tierLabel
+} from '@/pages/models/catalog';
 import {
 	API_ROUTES,
 	type ApiRoute,
@@ -70,6 +83,13 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 		staleTime: 5 * 60_000
 	});
 	const caps = capsQuery.data ?? null;
+	const catalogQuery = useQuery({
+		queryKey: ['ai21-model-catalog'],
+		queryFn: getCatalog,
+		retry: false,
+		staleTime: 5 * 60_000
+	});
+	const catalog = catalogQuery.data ?? null;
 	const rateIndex = useMemo(
 		() => (ratesQuery.data ? indexRates(ratesQuery.data.rates) : null),
 		[ratesQuery.data]
@@ -148,6 +168,7 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 											model={model}
 											route={route}
 											caps={caps}
+											catalog={catalog}
 											onOpen={() => setSelectedKey(model.model.key)}
 										/>
 									))}
@@ -191,6 +212,7 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 						</div>
 					</div>
 					<PricePlayground key={selected.model.key} model={selected} />
+					{catalog ? <GatewayCatalog model={selected} catalog={catalog} /> : null}
 					<details className="price-yaml">
 						<summary>Model YAML</summary>
 						<YamlBlock value={selected.model} />
@@ -221,6 +243,7 @@ function ModelRow(props: {
 	model: PricedModel;
 	route: ApiRoute;
 	caps: CapsResponse | null;
+	catalog: CatalogResponse | null;
 	onOpen: () => void;
 }) {
 	const { model } = props;
@@ -234,6 +257,9 @@ function ModelRow(props: {
 					<span className="price-th">
 						<strong>{model.model.name}</strong>
 						{rates ? <DefaultsTip model={model} /> : null}
+						{props.catalog && rates ? (
+							<GatewayPriceBadge model={model} catalog={props.catalog} />
+						) : null}
 					</span>
 					{model.upstream !== model.model.name ? <small>{model.upstream}</small> : null}
 				</div>
@@ -277,6 +303,113 @@ function ModelRow(props: {
 				</Tooltip>
 			</td>
 		</tr>
+	);
+}
+
+function GatewayPriceBadge(props: { model: PricedModel; catalog: CatalogResponse }) {
+	const entry = catalogEntry(props.catalog, props.model);
+	const diffs = catalogDiffs(entry, props.model);
+	if (entry && !diffs.length) return null;
+	const fmt = (v: number | null) => (v === null ? 'none' : `$${trimNumber(v)}`);
+	return (
+		<Tooltip
+			content={
+				<div className="price-tip">
+					<strong>
+						{entry ? 'Gateway bills a different price' : 'Gateway has no price for this model'}
+					</strong>
+					{entry ? (
+						<ul>
+							{diffs.map(d => (
+								<li key={d.label}>
+									{d.label}: config-service {fmt(d.ours)}, gateway {fmt(d.gateway)}
+								</li>
+							))}
+						</ul>
+					) : null}
+					<span>
+						{entry
+							? "agentgateway's llm.cost uses the gateway catalog (OpenRouter, hourly); our BigQuery cost views use config-service. Standard tier, global, $ per 1M."
+							: "Not in the price job's catalog, so agentgateway's llm.cost is 0 for it; our BigQuery cost views still price it from config-service."}
+					</span>
+				</div>
+			}
+		>
+			<button
+				className={entry ? 'badge warn price-diff' : 'badge muted price-diff'}
+				type="button"
+				aria-label={`Gateway price for ${props.model.model.name}`}
+			>
+				{entry ? '≠ gateway' : 'no gateway price'}
+			</button>
+		</Tooltip>
+	);
+}
+
+function GatewayCatalog(props: { model: PricedModel; catalog: CatalogResponse }) {
+	const entry = catalogEntry(props.catalog, props.model);
+	const diffs = catalogDiffs(entry, props.model);
+	return (
+		<div className="price-playground">
+			<span className="field-label">What the gateway bills (ai21-model-catalog)</span>
+			{!entry ? (
+				<p className="price-missing">
+					Not in the price job's catalog: agentgateway's llm.cost is 0 for {props.model.upstream}.
+				</p>
+			) : (
+				<>
+					<small>
+						OpenRouter's prices for {props.model.upstream}, refreshed hourly. Muted rows are not
+						billed by agentgateway 1.6 yet (only standard, global and its long-context bands are).
+						{diffs.length
+							? ` Differs from config-service on: ${diffs.map(d => d.label.toLowerCase()).join(', ')}.`
+							: ' Standard prices match config-service.'}
+					</small>
+					<div className="table-wrap">
+						<table className="price-lines">
+							<thead>
+								<tr>
+									<th>Variant</th>
+									{CATALOG_COLUMNS.map(c => (
+										<th key={c.key} className="numeric">
+											{c.label}
+										</th>
+									))}
+								</tr>
+							</thead>
+							<tbody>
+								{entry.rates ? (
+									<tr>
+										<td>
+											<span className="badge">standard</span>
+										</td>
+										{CATALOG_COLUMNS.map(c => (
+											<td key={c.key} className="numeric">
+												{entry.rates?.[c.key] ? `$${Number(entry.rates[c.key])}` : '—'}
+											</td>
+										))}
+									</tr>
+								) : null}
+								{(entry.tiers ?? []).map(tier => (
+									<tr key={tierLabel(tier)}>
+										<td>
+											<span className={billedByGateway(tier) ? 'badge' : 'badge muted'}>
+												{tierLabel(tier)}
+											</span>
+										</td>
+										{CATALOG_COLUMNS.map(c => (
+											<td key={c.key} className="numeric">
+												{tier.rates[c.key] ? `$${Number(tier.rates[c.key])}` : '—'}
+											</td>
+										))}
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</>
+			)}
+		</div>
 	);
 }
 

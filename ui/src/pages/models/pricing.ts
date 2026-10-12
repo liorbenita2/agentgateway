@@ -177,18 +177,23 @@ function classify(
 
 // Comparable model key: no vendor prefix, no date suffix, dots as dashes, lower case.
 export function modelKey(name: string): string {
+	return exactKey(name).replace(/-\d{8}$|-\d{4}-\d{2}-\d{2}$/, '');
+}
+
+function exactKey(name: string): string {
 	const last = name.toLowerCase().replace(/@.*$/, '').split('/').pop() ?? '';
-	return last.replace(/-\d{8}$|-\d{4}-\d{2}-\d{2}$/, '').replace(/\./g, '-');
+	return last.replace(/\./g, '-');
 }
 
 export type RateIndex = Map<string, Map<string, ModelRates>>;
 
+// Keyed by the card's own name; a dated and an undated id stay separate (they can differ in price).
 export function indexRates(rows: RateRow[]): RateIndex {
 	const index: RateIndex = new Map();
 	for (const row of rows) {
 		const batch = row.model.endsWith(':batch');
 		const slug = batch ? row.model.slice(0, -':batch'.length) : row.model;
-		const key = modelKey(slug);
+		const key = exactKey(slug);
 		let byModel = index.get(row.provider);
 		if (!byModel) {
 			byModel = new Map();
@@ -202,6 +207,18 @@ export function indexRates(rows: RateRow[]): RateIndex {
 		(batch ? entry.batch : entry.standard).push(row);
 	}
 	return index;
+}
+
+// The card's exact name first, then the undated name, then any dated version of it.
+function lookupRates(byModel: Map<string, ModelRates> | undefined, upstream: string) {
+	if (!byModel) return null;
+	const exact = byModel.get(exactKey(upstream));
+	if (exact) return exact;
+	const undated = modelKey(upstream);
+	const plain = byModel.get(undated);
+	if (plain) return plain;
+	for (const [key, entry] of byModel) if (modelKey(key) === undated) return entry;
+	return null;
 }
 
 // --- Models -------------------------------------------------------------------------------
@@ -245,8 +262,7 @@ export function priceModels(dump: StoresDump, rates: RateIndex | null): PricedMo
 		const routes: RouteSupport[] =
 			r.provider === 'vercel' ? [{ route: 'native', native: true }] : routesFor(r.formats);
 		const card = RATE_CARD_PROVIDER[r.provider];
-		const found =
-			card && rates && !r.pattern ? (rates.get(card)?.get(modelKey(r.upstream)) ?? null) : null;
+		const found = card && rates && !r.pattern ? lookupRates(rates.get(card), r.upstream) : null;
 		return {
 			model,
 			provider: r.provider,
