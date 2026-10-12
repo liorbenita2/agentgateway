@@ -27,3 +27,18 @@ export interface RatesResponse {
 export function listRates() {
 	return requestJson<RatesResponse>('/prices');
 }
+
+// Daily token caps per model (-1 = uncapped), as the chart gives the limiter; served at <base>/caps.
+export interface DailyCap {
+	input: number;
+	output: number;
+}
+
+export interface CapsResponse {
+	default: DailyCap;
+	models: Record<string, DailyCap>;
+}
+
+export function listCaps() {
+	return requestJson<CapsResponse>('/caps');
+}
