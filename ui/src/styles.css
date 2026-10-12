@@ -6578,3 +6578,10 @@ textarea {
 	font: inherit;
 	font-size: 0.75em;
 }
+
+.price-variant-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	max-width: 220px;
+}
