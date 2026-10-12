@@ -61,6 +61,8 @@ const COLUMN_HELP: Record<string, string> = {
 		'Tokens written to the cache with the default 5-minute TTL (Anthropic cache_control without ttl), $ per 1M.',
 	write1h:
 		'Writes with cache_control.ttl "1h", $ per 1M. agentgateway\'s own llm.cost prices these at the 5m rate; the invoice and our cost views use this one.',
+	variants:
+		"Prices that change with the request in the gateway's catalog (OpenRouter, hourly): service tiers (flex, priority), regions (Vertex us/europe, Bedrock regions) and long-context bands. The (i) lists every variant's rates; the drawer has the full table. agentgateway 1.6 bills only the standard, global price and its long-context bands.",
 	cap: 'Daily token cap per model, input / output, shared by every caller and reset at midnight UTC. Input counts uncached tokens only. Over the cap the gateway answers 429 until midnight.',
 	long: 'Input / output $ per 1M once the prompt passes the threshold; the whole request moves to these rates. Thresholds and multipliers differ per provider and model: the (i) on each cell lists every line. Our BigQuery cost rollup prices base context only.',
 	routes:
@@ -119,6 +121,11 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 					config-service rates could not be loaded: {(ratesQuery.error as Error).message}
 				</StatusBanner>
 			) : null}
+			{catalogQuery.isError ? (
+				<StatusBanner state="warn" title="Gateway catalog unavailable">
+					The ai21-model-catalog could not be loaded: {(catalogQuery.error as Error).message}
+				</StatusBanner>
+			) : null}
 			<Panel>
 				{!priced.length ? (
 					<EmptyState
@@ -157,6 +164,9 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 										<HeaderTip label="Write 5m" help={COLUMN_HELP.write5m} numeric />
 										<HeaderTip label="Write 1h" help={COLUMN_HELP.write1h} numeric />
 										<HeaderTip label="Long context" help={COLUMN_HELP.long} numeric />
+										{catalog ? (
+											<HeaderTip label="Tiers & regions" help={COLUMN_HELP.variants} />
+										) : null}
 										{caps ? <HeaderTip label="Daily cap" help={COLUMN_HELP.cap} numeric /> : null}
 										<th aria-label="Actions" />
 									</tr>
@@ -289,6 +299,7 @@ function ModelRow(props: {
 					{unpricedReason(model)}
 				</td>
 			)}
+			{props.catalog ? <VariantsCell model={model} catalog={props.catalog} /> : null}
 			{props.caps ? <CapCell model={model} caps={props.caps} /> : null}
 			<td className="row-actions">
 				<Tooltip content="Price playground">
@@ -343,6 +354,74 @@ function GatewayPriceBadge(props: { model: PricedModel; catalog: CatalogResponse
 				{entry ? '≠ gateway' : 'no gateway price'}
 			</button>
 		</Tooltip>
+	);
+}
+
+function VariantsCell(props: { model: PricedModel; catalog: CatalogResponse }) {
+	const entry = catalogEntry(props.catalog, props.model);
+	const tiers = entry?.tiers ?? [];
+	if (!tiers.length) return <td className="price-missing">—</td>;
+	const unique = (values: Array<string | undefined>) => [
+		...new Set(values.filter((v): v is string => Boolean(v)))
+	];
+	const serviceTiers = unique(tiers.map(t => t.serviceTier));
+	const regions = unique(tiers.map(t => t.region));
+	const bands = unique(
+		tiers.map(t =>
+			t.contextOver ? tierLabel({ rates: {}, contextOver: t.contextOver }) : undefined
+		)
+	);
+	const money = (v?: string) => (v ? `$${Number(v)}` : '—');
+	return (
+		<td>
+			<span className="price-th price-variants">
+				<span className="price-variant-chips">
+					{serviceTiers.map(t => (
+						<span key={t} className="badge">
+							{t}
+						</span>
+					))}
+					{regions.map(r => (
+						<span key={r} className="badge muted">
+							{r}
+						</span>
+					))}
+					{bands.map(b => (
+						<span key={b} className="badge muted">
+							{b}
+						</span>
+					))}
+				</span>
+				<Tooltip
+					side="left"
+					content={
+						<div className="price-tip">
+							<strong>Gateway catalog variants, $ per 1M input / output</strong>
+							<ul>
+								<li>
+									standard, global: {money(entry?.rates?.input)} / {money(entry?.rates?.output)}
+								</li>
+								{tiers.map(t => (
+									<li key={tierLabel(t)}>
+										{tierLabel(t)}: {money(t.rates.input)} / {money(t.rates.output)}
+										{billedByGateway(t) ? '' : ' (not billed by the gateway yet)'}
+									</li>
+								))}
+							</ul>
+							<span>Cache prices for each variant are in the model's drawer.</span>
+						</div>
+					}
+				>
+					<button
+						className="help-icon price-tip-button"
+						type="button"
+						aria-label={`Price variants for ${props.model.model.name}`}
+					>
+						<HelpCircle size={13} aria-hidden="true" />
+					</button>
+				</Tooltip>
+			</span>
+		</td>
 	);
 }
 
