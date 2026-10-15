@@ -319,6 +319,18 @@
 |`binds[].listeners[].routes[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`binds[].listeners[].routes[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`binds[].listeners[].routes[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`binds[].listeners[].routes[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`binds[].listeners[].routes[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.input`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.output`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.cacheRead`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.reasoning`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.inputAudio`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.outputAudio`|string||
+|`binds[].listeners[].routes[].policies.ai.pricing[].cost.pages`|string||
 |`binds[].listeners[].routes[].policies.backendTLS`|object|TLS settings used when connecting to the backend.|
 |`binds[].listeners[].routes[].policies.backendTLS.cert`|string|Client certificate file to present to the backend.|
 |`binds[].listeners[].routes[].policies.backendTLS.key`|string|Private key file for the client certificate.|
@@ -915,6 +927,18 @@
 |`binds[].listeners[].routes[].backends[].ai.policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`binds[].listeners[].routes[].backends[].ai.policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`binds[].listeners[].routes[].backends[].ai.policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.input`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.output`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.cacheRead`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.cacheWrite`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.reasoning`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.inputAudio`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.outputAudio`|string||
+|`binds[].listeners[].routes[].backends[].ai.policies.ai.pricing[].cost.pages`|string||
 |`binds[].listeners[].routes[].backends[].ai.groups`|[]object||
 |`binds[].listeners[].routes[].backends[].ai.groups[].providers`|[]object|LLM providers in this group, load balanced together.|
 |`binds[].listeners[].routes[].backends[].ai.groups[].providers[].name`|string|Name identifying this provider, referenced by `llm.models[].provider`.|
@@ -1125,6 +1149,18 @@
 |`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.input`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.output`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheRead`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.reasoning`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.inputAudio`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.outputAudio`|string||
+|`binds[].listeners[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.pages`|string||
 |`binds[].listeners[].routes[].backends[].aws`|object||
 |`binds[].listeners[].routes[].backends[].aws.agentCore`|object||
 |`binds[].listeners[].routes[].backends[].aws.agentCore.agentRuntimeArn`|string|ARN of the Bedrock AgentCore runtime (arn:aws:bedrock-agentcore:REGION:ACCOUNT:runtime/ID).|
@@ -1297,6 +1333,18 @@
 |`binds[].listeners[].routes[].backends[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`binds[].listeners[].routes[].backends[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`binds[].listeners[].routes[].backends[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.input`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.output`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.cacheRead`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.reasoning`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.inputAudio`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.outputAudio`|string||
+|`binds[].listeners[].routes[].backends[].policies.ai.pricing[].cost.pages`|string||
 |`binds[].listeners[].tcpRoutes`|[]object|TCP routes attached directly to this listener.|
 |`binds[].listeners[].tcpRoutes[].name`|string|Name identifying this route.|
 |`binds[].listeners[].tcpRoutes[].namespace`|string|Namespace scoping this route.|
@@ -1875,6 +1923,18 @@
 |`policies[].policy.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`policies[].policy.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`policies[].policy.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`policies[].policy.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`policies[].policy.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`policies[].policy.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`policies[].policy.ai.pricing[].cost.input`|string||
+|`policies[].policy.ai.pricing[].cost.output`|string||
+|`policies[].policy.ai.pricing[].cost.cacheRead`|string||
+|`policies[].policy.ai.pricing[].cost.cacheWrite`|string||
+|`policies[].policy.ai.pricing[].cost.cacheWrite1h`|string||
+|`policies[].policy.ai.pricing[].cost.reasoning`|string||
+|`policies[].policy.ai.pricing[].cost.inputAudio`|string||
+|`policies[].policy.ai.pricing[].cost.outputAudio`|string||
+|`policies[].policy.ai.pricing[].cost.pages`|string||
 |`policies[].policy.backendTLS`|object|TLS settings used when connecting to the backend.|
 |`policies[].policy.backendTLS.cert`|string|Client certificate file to present to the backend.|
 |`policies[].policy.backendTLS.key`|string|Private key file for the client certificate.|
@@ -2471,6 +2531,18 @@
 |`backends[].ai.policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`backends[].ai.policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`backends[].ai.policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`backends[].ai.policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`backends[].ai.policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`backends[].ai.policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`backends[].ai.policies.ai.pricing[].cost.input`|string||
+|`backends[].ai.policies.ai.pricing[].cost.output`|string||
+|`backends[].ai.policies.ai.pricing[].cost.cacheRead`|string||
+|`backends[].ai.policies.ai.pricing[].cost.cacheWrite`|string||
+|`backends[].ai.policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`backends[].ai.policies.ai.pricing[].cost.reasoning`|string||
+|`backends[].ai.policies.ai.pricing[].cost.inputAudio`|string||
+|`backends[].ai.policies.ai.pricing[].cost.outputAudio`|string||
+|`backends[].ai.policies.ai.pricing[].cost.pages`|string||
 |`backends[].ai.groups`|[]object||
 |`backends[].ai.groups[].providers`|[]object|LLM providers in this group, load balanced together.|
 |`backends[].ai.groups[].providers[].name`|string|Name identifying this provider, referenced by `llm.models[].provider`.|
@@ -2681,6 +2753,18 @@
 |`backends[].ai.groups[].providers[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`backends[].ai.groups[].providers[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`backends[].ai.groups[].providers[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`backends[].ai.groups[].providers[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.input`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.output`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheRead`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.reasoning`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.inputAudio`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.outputAudio`|string||
+|`backends[].ai.groups[].providers[].policies.ai.pricing[].cost.pages`|string||
 |`backends[].aws`|object||
 |`backends[].aws.agentCore`|object||
 |`backends[].aws.agentCore.agentRuntimeArn`|string|ARN of the Bedrock AgentCore runtime (arn:aws:bedrock-agentcore:REGION:ACCOUNT:runtime/ID).|
@@ -2851,6 +2935,18 @@
 |`backends[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`backends[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`backends[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`backends[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`backends[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`backends[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`backends[].policies.ai.pricing[].cost.input`|string||
+|`backends[].policies.ai.pricing[].cost.output`|string||
+|`backends[].policies.ai.pricing[].cost.cacheRead`|string||
+|`backends[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`backends[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`backends[].policies.ai.pricing[].cost.reasoning`|string||
+|`backends[].policies.ai.pricing[].cost.inputAudio`|string||
+|`backends[].policies.ai.pricing[].cost.outputAudio`|string||
+|`backends[].policies.ai.pricing[].cost.pages`|string||
 |`routeGroups`|[]object|routeGroups provides a set of route groups used for route delegation. This is an advanced feature<br>primarily used for testing.|
 |`routeGroups[].name`|string|Identifier for this route group, referenced by delegating routes.|
 |`routeGroups[].routes`|[]object|HTTP routes grouped together for delegation and reuse.|
@@ -3009,6 +3105,18 @@
 |`routeGroups[].routes[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routeGroups[].routes[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routeGroups[].routes[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routeGroups[].routes[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routeGroups[].routes[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routeGroups[].routes[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routeGroups[].routes[].policies.ai.pricing[].cost.input`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.output`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.cacheRead`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.reasoning`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.inputAudio`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.outputAudio`|string||
+|`routeGroups[].routes[].policies.ai.pricing[].cost.pages`|string||
 |`routeGroups[].routes[].policies.backendTLS`|object|TLS settings used when connecting to the backend.|
 |`routeGroups[].routes[].policies.backendTLS.cert`|string|Client certificate file to present to the backend.|
 |`routeGroups[].routes[].policies.backendTLS.key`|string|Private key file for the client certificate.|
@@ -3605,6 +3713,18 @@
 |`routeGroups[].routes[].backends[].ai.policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routeGroups[].routes[].backends[].ai.policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routeGroups[].routes[].backends[].ai.policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.input`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.output`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.cacheRead`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.cacheWrite`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.reasoning`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.inputAudio`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.outputAudio`|string||
+|`routeGroups[].routes[].backends[].ai.policies.ai.pricing[].cost.pages`|string||
 |`routeGroups[].routes[].backends[].ai.groups`|[]object||
 |`routeGroups[].routes[].backends[].ai.groups[].providers`|[]object|LLM providers in this group, load balanced together.|
 |`routeGroups[].routes[].backends[].ai.groups[].providers[].name`|string|Name identifying this provider, referenced by `llm.models[].provider`.|
@@ -3815,6 +3935,18 @@
 |`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.input`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.output`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheRead`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.reasoning`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.inputAudio`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.outputAudio`|string||
+|`routeGroups[].routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.pages`|string||
 |`routeGroups[].routes[].backends[].aws`|object||
 |`routeGroups[].routes[].backends[].aws.agentCore`|object||
 |`routeGroups[].routes[].backends[].aws.agentCore.agentRuntimeArn`|string|ARN of the Bedrock AgentCore runtime (arn:aws:bedrock-agentcore:REGION:ACCOUNT:runtime/ID).|
@@ -3987,6 +4119,18 @@
 |`routeGroups[].routes[].backends[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routeGroups[].routes[].backends[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routeGroups[].routes[].backends[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routeGroups[].routes[].backends[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.input`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.output`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.cacheRead`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.reasoning`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.inputAudio`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.outputAudio`|string||
+|`routeGroups[].routes[].backends[].policies.ai.pricing[].cost.pages`|string||
 |`gateways`|object|gateways defines the entrypoint to the proxy, setting up ports and listeners that features (LLM, MCP, and UI) and routes can attach to.<br>Each gateway defines a port that proxy will listen on, and optionally TLS settings for that port.|
 |`gateways.*.port`|integer|port is the port to listen on for this gateway.|
 |`gateways.*.bindAddress`|string|bindAddress is the IPv4 or IPv6 address to listen on. Use `127.0.0.1` or `::1` for loopback.<br>When omitted, listens on all interfaces (`::` on Unix with IPv6 enabled, otherwise `0.0.0.0`).|
@@ -4632,6 +4776,18 @@
 |`routes[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routes[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routes[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routes[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routes[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routes[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routes[].policies.ai.pricing[].cost.input`|string||
+|`routes[].policies.ai.pricing[].cost.output`|string||
+|`routes[].policies.ai.pricing[].cost.cacheRead`|string||
+|`routes[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`routes[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routes[].policies.ai.pricing[].cost.reasoning`|string||
+|`routes[].policies.ai.pricing[].cost.inputAudio`|string||
+|`routes[].policies.ai.pricing[].cost.outputAudio`|string||
+|`routes[].policies.ai.pricing[].cost.pages`|string||
 |`routes[].policies.backendTLS`|object|TLS settings used when connecting to the backend.|
 |`routes[].policies.backendTLS.cert`|string|Client certificate file to present to the backend.|
 |`routes[].policies.backendTLS.key`|string|Private key file for the client certificate.|
@@ -5228,6 +5384,18 @@
 |`routes[].backends[].ai.policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routes[].backends[].ai.policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routes[].backends[].ai.policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routes[].backends[].ai.policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routes[].backends[].ai.policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routes[].backends[].ai.policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routes[].backends[].ai.policies.ai.pricing[].cost.input`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.output`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.cacheRead`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.cacheWrite`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.reasoning`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.inputAudio`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.outputAudio`|string||
+|`routes[].backends[].ai.policies.ai.pricing[].cost.pages`|string||
 |`routes[].backends[].ai.groups`|[]object||
 |`routes[].backends[].ai.groups[].providers`|[]object|LLM providers in this group, load balanced together.|
 |`routes[].backends[].ai.groups[].providers[].name`|string|Name identifying this provider, referenced by `llm.models[].provider`.|
@@ -5438,6 +5606,18 @@
 |`routes[].backends[].ai.groups[].providers[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routes[].backends[].ai.groups[].providers[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routes[].backends[].ai.groups[].providers[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.input`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.output`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheRead`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.reasoning`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.inputAudio`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.outputAudio`|string||
+|`routes[].backends[].ai.groups[].providers[].policies.ai.pricing[].cost.pages`|string||
 |`routes[].backends[].aws`|object||
 |`routes[].backends[].aws.agentCore`|object||
 |`routes[].backends[].aws.agentCore.agentRuntimeArn`|string|ARN of the Bedrock AgentCore runtime (arn:aws:bedrock-agentcore:REGION:ACCOUNT:runtime/ID).|
@@ -5610,6 +5790,18 @@
 |`routes[].backends[].policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`routes[].backends[].policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`routes[].backends[].policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`routes[].backends[].policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`routes[].backends[].policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`routes[].backends[].policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`routes[].backends[].policies.ai.pricing[].cost.input`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.output`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.cacheRead`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.cacheWrite`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.reasoning`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.inputAudio`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.outputAudio`|string||
+|`routes[].backends[].policies.ai.pricing[].cost.pages`|string||
 |`tcpRoutes`|[]object|tcpRoutes defines TCP routes attached to one or more named TCP/TLS gateways.|
 |`tcpRoutes[].gateways`|string|gateways attaches this route to named TCP/TLS gateways or gateway listeners.<br>This can take the form of `<gateway-name>` or `<gateway-name>/<listener-name>` to attach to a specific listener within a gateway.<br>If unset, the 'default' gateway will be used.|
 |`tcpRoutes[].name`|string|Name identifying this route.|
@@ -6344,6 +6536,18 @@
 |`mcp.policies.ai.promptCaching.minTokens`|integer|Minimum prompt size required before cache markers are added.|
 |`mcp.policies.ai.promptCaching.cacheMessageOffset`|integer|Message offset used when choosing where to place cache markers.|
 |`mcp.policies.ai.routes`|object|Route type overrides selected by request path suffix.|
+|`mcp.policies.ai.pricing`|[]object|Rules that override the model catalog cost of matching requests.|
+|`mcp.policies.ai.pricing[].condition`|string|Selects the requests this rule prices; absent means always. The first matching rule applies.|
+|`mcp.policies.ai.pricing[].cost`|object|CEL expressions returning the USD cost of each component. Unset components keep the<br>catalog cost; the total is always the sum of the components.|
+|`mcp.policies.ai.pricing[].cost.input`|string||
+|`mcp.policies.ai.pricing[].cost.output`|string||
+|`mcp.policies.ai.pricing[].cost.cacheRead`|string||
+|`mcp.policies.ai.pricing[].cost.cacheWrite`|string||
+|`mcp.policies.ai.pricing[].cost.cacheWrite1h`|string||
+|`mcp.policies.ai.pricing[].cost.reasoning`|string||
+|`mcp.policies.ai.pricing[].cost.inputAudio`|string||
+|`mcp.policies.ai.pricing[].cost.outputAudio`|string||
+|`mcp.policies.ai.pricing[].cost.pages`|string||
 |`mcp.policies.backendTLS`|object|TLS settings used when connecting to the backend.|
 |`mcp.policies.backendTLS.cert`|string|Client certificate file to present to the backend.|
 |`mcp.policies.backendTLS.key`|string|Private key file for the client certificate.|

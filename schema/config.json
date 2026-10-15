@@ -5382,6 +5382,16 @@
           "additionalProperties": {
             "$ref": "#/$defs/RouteType"
           }
+        },
+        "pricing": {
+          "description": "Rules that override the model catalog cost of matching requests.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/PricingRule"
+          }
         }
       },
       "additionalProperties": false
@@ -6279,6 +6289,126 @@
           "const": "decisions"
         }
       ]
+    },
+    "PricingRule": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "description": "Selects the requests this rule prices; absent means always. The first matching rule applies.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cost": {
+          "description": "CEL expressions returning the USD cost of each component. Unset components keep the\ncatalog cost; the total is always the sum of the components.",
+          "$ref": "#/$defs/PricingCost"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "cost"
+      ]
+    },
+    "PricingCost": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cacheRead": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cacheWrite": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cacheWrite1h": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasoning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputAudio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outputAudio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pages": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Expression"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "LocalRateLimitPolicy": {
       "anyOf": [

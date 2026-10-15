@@ -1159,6 +1159,7 @@ impl RequestLog {
 			incoming_span: None,
 			outgoing_span: None,
 			llm_request: None,
+			llm_pricing: None,
 			llm_response: Default::default(),
 			original_model: None,
 			guardrails: Default::default(),
@@ -1340,6 +1341,7 @@ pub struct RequestLog {
 	pub outgoing_span: Option<trc::TraceParent>,
 
 	pub llm_request: Option<llm::LLMRequest>,
+	pub llm_pricing: Option<Arc<[llm::policy::pricing::PricingRule]>>,
 	pub llm_response: AsyncLog<llm::LLMInfo>,
 	pub original_model: Option<String>,
 	pub guardrails: GuardrailLog,
@@ -1455,10 +1457,10 @@ impl Drop for DropOnLog {
 			let duration = end_time.duration_since(&log.start);
 			let enable_trace = log.tracer.is_some();
 
-			let mut llm_response: Option<LLMContext> = log
-				.llm_response
-				.take()
-				.map(|llm_info| LLMContext::from_llm_info(llm_info, Some(log.model_catalog.as_ref())));
+			let mut llm_response: Option<LLMContext> = log.llm_response.take().map(|llm_info| {
+				LLMContext::from_llm_info(llm_info, Some(log.model_catalog.as_ref()))
+					.with_pricing(log.llm_pricing.as_deref(), log.request_snapshot.as_deref())
+			});
 			if let Some(llm_response) = llm_response.as_mut() {
 				llm_response.set_token_timing(log.start.as_instant(), end_time.as_instant());
 			}

@@ -581,6 +581,10 @@ impl LLMRequestPolicies {
 			} else {
 				preferred.routes.clone()
 			},
+			pricing: preferred
+				.pricing
+				.clone()
+				.or_else(|| fallback.pricing.clone()),
 		})
 	}
 }
@@ -592,6 +596,7 @@ pub struct LLMResponsePolicies {
 	pub request_traceparent: Option<HeaderValue>,
 	pub prompt_guard: Vec<ResponseGuard>,
 	pub streaming_prompt_guard_enabled: bool,
+	pub pricing: Option<Arc<[llm::policy::pricing::PricingRule]>>,
 }
 
 impl Default for Store {

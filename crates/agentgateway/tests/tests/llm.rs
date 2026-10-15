@@ -1041,6 +1041,50 @@ llm:
 }
 
 #[tokio::test]
+async fn llm_pricing_overrides_catalog_cost() {
+	let mock = body_mock(llm_body!("response/completions/basic.json")).await;
+	let (_mock, mut bind, io) = setup_llm_mock(
+		mock,
+		AIProvider::OpenAI(openai::Provider {
+			model_override: None,
+			moderation: None,
+		}),
+		false,
+		"{}",
+	);
+	bind
+		.pi
+		.model_catalog
+		.replace_sources(vec![agentgateway::ModelCatalogSource::Inline {
+			inline: r#"{"providers":{"openai":{"models":{"gpt-3.5-turbo-0125":{"rates":{"input":"1","output":"2"}}}}}}"#
+				.to_string(),
+		}])
+		.await
+		.expect("inline catalog loads");
+	bind
+		.attach_route_policy(json!({
+			"ai": {
+				"pricing": [
+					{"condition": "llm.provider == 'anthropic'", "cost": {"input": "100"}},
+					{
+						"condition": "llm.provider == 'openai'",
+						"cost": {"input": "0", "output": "double(llm.outputTokens) / 4.0"}
+					}
+				]
+			}
+		}))
+		.await;
+
+	// 23 output tokens priced at $0.25 each, input made free.
+	let want = json!({
+		"gen_ai.provider.name": "openai",
+		"gen_ai.response.model": "gpt-3.5-turbo-0125",
+		"agw.ai.usage.cost.total": "5.75"
+	});
+	assert_llm(io, llm_body!("requests/completions/basic.json"), want).await;
+}
+
+#[tokio::test]
 async fn llm_model_router_rewrites_multipart_virtual_model() {
 	let mock = body_mock(include_bytes!(
 		"../../../llm/src/tests/response/completions/basic.json"

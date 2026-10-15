@@ -1737,6 +1737,17 @@ impl LLMContext {
 		base
 	}
 
+	pub fn with_pricing(
+		mut self,
+		rules: Option<&[llm::policy::pricing::PricingRule]>,
+		req: Option<&RequestSnapshot>,
+	) -> Self {
+		if let Some(rules) = rules {
+			llm::policy::pricing::apply(rules, req, &mut self);
+		}
+		self
+	}
+
 	pub fn set_token_timing(&mut self, request_start: Instant, response_end: Instant) {
 		let Some(first_token) = self.first_token else {
 			return;

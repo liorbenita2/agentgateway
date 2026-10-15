@@ -1230,6 +1230,7 @@ fn convert_backend_ai_policy(
 			.iter()
 			.map(|(k, v)| (strng::new(k), convert_route_type(*v, diagnostics)))
 			.collect(),
+		pricing: None,
 	};
 
 	// Compile wildcard patterns from model_aliases

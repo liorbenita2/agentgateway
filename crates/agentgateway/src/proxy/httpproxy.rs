@@ -655,6 +655,7 @@ async fn apply_llm_request_policies(
 		request_traceparent: req.headers().get(TRACEPARENT).cloned(),
 		prompt_guard: prompt_guard.map(|g| g.response.clone()).unwrap_or_default(),
 		streaming_prompt_guard_enabled: prompt_guard.is_some_and(|g| g.streaming.is_enabled()),
+		pricing: policies.llm.as_ref().and_then(|llm| llm.pricing.clone()),
 	})
 }
 
@@ -3012,7 +3013,10 @@ async fn make_backend_call(
 						)
 						.await?
 					};
-					log.add(|l| l.llm_request = Some(llm_request.clone()));
+					log.add(|l| {
+						l.llm_request = Some(llm_request.clone());
+						l.llm_pricing = response_policies.pricing.clone();
+					});
 					(req, response_policies, Some(llm_request))
 				},
 				// SystemOne is only an upstream route.
@@ -3842,6 +3846,7 @@ fn finalize_attempt_for_retry(
 	let mut llm_response: Option<crate::cel::LLMContext> =
 		log.llm_response.load_clone().map(|llm_info| {
 			crate::cel::LLMContext::from_llm_info(llm_info, Some(log.model_catalog.as_ref()))
+				.with_pricing(log.llm_pricing.as_deref(), log.request_snapshot.as_deref())
 		});
 	if let Some(llm_response) = llm_response.as_mut() {
 		llm_response.set_token_timing(log.start.as_instant(), end_time.as_instant());

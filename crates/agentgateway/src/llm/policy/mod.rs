@@ -83,6 +83,7 @@ mod bedrock_guardrails;
 mod google_model_armor;
 mod moderation;
 mod pii;
+pub mod pricing;
 pub mod streaming_guardrails;
 #[cfg(test)]
 #[path = "tests.rs"]
@@ -210,6 +211,9 @@ pub struct Policy {
 		schemars(with = "std::collections::HashMap<String, crate::llm::RouteType>")
 	)]
 	pub routes: SortedRoutes,
+	/// Rules that override the model catalog cost of matching requests.
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub pricing: Option<Arc<[pricing::PricingRule]>>,
 }
 
 fn webhook_header_expressions(g: &PromptGuard) -> impl Iterator<Item = &cel::Expression> {
@@ -247,6 +251,7 @@ impl crate::store::HasExpressions for Policy {
 					.iter()
 					.flat_map(webhook_header_expressions),
 			)
+			.chain(self.pricing.iter().flat_map(|p| pricing::expressions(p)))
 	}
 }
 

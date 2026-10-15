@@ -2518,7 +2518,7 @@ impl AIProvider {
 
 		let buffered = Self::buffer_response(resp).await?;
 
-		match req.input_format {
+		let resp = match req.input_format {
 			InputFormat::CountTokens => {
 				self.process_count_tokens_response(req, buffered, model_catalog, &logging.response)
 			},
@@ -2547,7 +2547,7 @@ impl AIProvider {
 				|req, _, bytes| self.process_decisions_response(req, bytes),
 			),
 			_ => {
-				self
+				return self
 					.process_chat_or_detect_buffered_response(
 						client,
 						req,
@@ -2557,9 +2557,18 @@ impl AIProvider {
 						model_catalog,
 						buffered,
 					)
-					.await
+					.await;
 			},
-		}
+		};
+		// Non-chat paths build their `llm` context without the response policies.
+		resp.map(|mut resp| {
+			if let Some(llm) = resp.extensions_mut().remove::<crate::cel::LLMContext>() {
+				resp
+					.extensions_mut()
+					.insert(llm.with_pricing(rate_limit.pricing.as_deref(), req_snapshot.as_deref()));
+			}
+			resp
+		})
 	}
 
 	#[allow(clippy::too_many_arguments)]
@@ -2637,12 +2646,10 @@ impl AIProvider {
 
 		parts.headers.remove(header::CONTENT_LENGTH);
 		let llm_info = LLMInfo::new(req, llm_resp);
-		parts
-			.extensions
-			.insert(crate::cel::LLMContext::from_llm_info(
-				llm_info.clone(),
-				model_catalog,
-			));
+		parts.extensions.insert(
+			crate::cel::LLMContext::from_llm_info(llm_info.clone(), model_catalog)
+				.with_pricing(rate_limit.pricing.as_deref(), req_snapshot.as_deref()),
+		);
 		managed_body.replace_bytes(body);
 		let resp = Response::from_parts(parts, managed_body);
 
@@ -3479,7 +3486,8 @@ impl AmendOnDrop {
 			&& (!pol.local_rate_limit.is_empty() || pol.remote_rate_limit.is_some())
 		{
 			self.log.non_atomic_mutate(|r| {
-				let ctx = LLMContext::from_llm_info(r.clone(), self.catalog.as_deref());
+				let ctx = LLMContext::from_llm_info(r.clone(), self.catalog.as_deref())
+					.with_pricing(pol.pricing.as_deref(), self.req.as_deref());
 				let exec = cel::Executor::new_llm_rate_limit_streaming(self.req.as_deref(), &ctx);
 				amend_tokens(pol, r, exec)
 			});
