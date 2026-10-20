@@ -1639,6 +1639,10 @@ impl Drop for DropOnLog {
 						("agw.ai.usage.cost.output", b.output.to_string()),
 						("agw.ai.usage.cost.cache_read", b.cache_read.to_string()),
 						("agw.ai.usage.cost.cache_write", b.cache_write.to_string()),
+						(
+							"agw.ai.usage.cost.cache_write_1h",
+							b.cache_write_1h.to_string(),
+						),
 						("agw.ai.usage.cost.reasoning", b.reasoning.to_string()),
 						("agw.ai.usage.cost.input_audio", b.input_audio.to_string()),
 						("agw.ai.usage.cost.output_audio", b.output_audio.to_string()),
@@ -1862,6 +1866,13 @@ impl Drop for DropOnLog {
 					llm_response
 						.as_ref()
 						.and_then(|l| l.cache_creation_input_tokens)
+						.map(Into::into),
+				),
+				(
+					"gen_ai.usage.cache_creation_1h.input_tokens",
+					llm_response
+						.as_ref()
+						.and_then(|l| l.cache_creation_1h_input_tokens)
 						.map(Into::into),
 				),
 				(
@@ -2170,6 +2181,7 @@ impl Drop for DropOnLog {
 							("agw.ai.usage.cost.output", cost.output),
 							("agw.ai.usage.cost.cacheRead", cost.cache_read),
 							("agw.ai.usage.cost.cacheWrite", cost.cache_write),
+							("agw.ai.usage.cost.cacheWrite1h", cost.cache_write_1h),
 							("agw.ai.usage.cost.reasoning", cost.reasoning),
 							("agw.ai.usage.cost.inputAudio", cost.input_audio),
 							("agw.ai.usage.cost.outputAudio", cost.output_audio),
@@ -3611,6 +3623,7 @@ mod tests {
 			input_tokens: Some(50),
 			cached_input_tokens: Some(40),
 			cache_creation_input_tokens: Some(10),
+			cache_creation_1h_input_tokens: Some(6),
 			input_audio_tokens: Some(3),
 			output_tokens: Some(20),
 			output_audio_tokens: Some(4),
@@ -3656,6 +3669,10 @@ mod tests {
 		assert_eq!(
 			value("gen_ai.usage.cache_creation.input_tokens"),
 			Some(&opentelemetry::Value::I64(10))
+		);
+		assert_eq!(
+			value("gen_ai.usage.cache_creation_1h.input_tokens"),
+			Some(&opentelemetry::Value::I64(6))
 		);
 		assert_eq!(
 			value("gen_ai.usage.reasoning_tokens"),

@@ -887,6 +887,7 @@ mod responses {
 		("tool", ALL_ANTHROPIC),
 		("thinking", ALL_ANTHROPIC),
 		("multiple_text_blocks", ALL_ANTHROPIC),
+		("cache_1h", ALL_ANTHROPIC),
 	];
 	const ALL_COMPLETIONS: &[&str] = &[
 		COMPLETIONS_TO_COMPLETIONS,
@@ -970,6 +971,10 @@ mod responses {
 			"response/detect/bedrock-invoke-anthropic.bin",
 			BEDROCK_TO_DETECT,
 		),
+		(
+			"response/detect/bedrock-invoke-anthropic-1h.bin",
+			BEDROCK_TO_DETECT,
+		),
 		("response/detect/bedrock-basic.bin", BEDROCK_TO_DETECT),
 		("response/detect/bedrock-broken.bin", BEDROCK_TO_DETECT),
 		("response/detect/broken-sse", COMPLETIONS_TO_DETECT),
@@ -987,6 +992,7 @@ mod responses {
 	const ANTHROPIC_STREAM_RESPONSES: &[(&str, &[&str])] = &[
 		("stream_basic", ALL_ANTHROPIC),
 		("stream_thinking", ALL_ANTHROPIC),
+		("stream_cache_1h", ALL_ANTHROPIC),
 		(
 			"stream_message_delta_usage",
 			&[MESSAGES_TO_MESSAGES, MESSAGES_TO_COMPLETIONS],

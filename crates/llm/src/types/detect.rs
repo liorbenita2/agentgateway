@@ -570,6 +570,16 @@ mod lookups {
 		// Bedrock invoke
 		&["metadata", "usage", "cacheWriteInputTokensCount"],
 	];
+	pub const CACHE_CREATION_1H_INPUT_TOKENS: [&[&str]; 2] = [
+		// Messages
+		&["usage", "cache_creation", "ephemeral_1h_input_tokens"],
+		&[
+			"message",
+			"usage",
+			"cache_creation",
+			"ephemeral_1h_input_tokens",
+		],
+	];
 	pub const CACHED_INPUT_TOKENS: [&[&str]; 7] = [
 		// Message
 		&["usage", "cache_read_input_tokens"],
@@ -620,6 +630,8 @@ impl ResponseType for Response {
 			reasoning_tokens: self.lookup(lookups::REASONING, |v| v.as_u64()),
 			cache_creation_input_tokens: self
 				.lookup(lookups::CACHE_CREATION_INPUT_TOKENS, |v| v.as_u64()),
+			cache_creation_1h_input_tokens: self
+				.lookup(lookups::CACHE_CREATION_1H_INPUT_TOKENS, |v| v.as_u64()),
 			cached_input_tokens: self.lookup(lookups::CACHED_INPUT_TOKENS, |v| v.as_u64()),
 			service_tier: self
 				.lookup(lookups::SERVICE_TIER, |v| v.as_str())
@@ -747,6 +759,12 @@ pub fn amend_from_stream_response(log: &mut StreamingUsageGuard, f: &StreamRespo
 		lookups::CACHE_CREATION_INPUT_TOKENS,
 		|v| v.as_u64(),
 		|l, v| l.response.cache_creation_input_tokens = Some(v),
+	);
+	let _cache_creation_1h_input_tokens = f.set_if(
+		log,
+		lookups::CACHE_CREATION_1H_INPUT_TOKENS,
+		|v| v.as_u64(),
+		|l, v| l.response.cache_creation_1h_input_tokens = Some(v),
 	);
 	let _cached_input_tokens = f.set_if(
 		log,
