@@ -51,7 +51,7 @@ const COLUMN_HELP: Record<string, string> = {
 	write1h:
 		'Writes with cache_control.ttl "1h", $ per 1M. agentgateway\'s own llm.cost prices these at the 5m rate; the invoice and our cost views use this one.',
 	variants:
-		"Prices that change with the request in the gateway's catalog (OpenRouter, hourly): service tiers (flex, priority), regions (Vertex us/europe, Bedrock regions) and long-context bands. The (i) lists every variant's rates; the drawer has the full table. agentgateway 1.6 bills only the standard, global price and its long-context bands.",
+		"Prices that change with the request in the gateway's catalog (OpenRouter, hourly): service tiers (flex, priority), regions (Vertex us/europe, Bedrock regions) and long-context bands. The (i) lists every variant's rates; the drawer has the full table. agentgateway 1.7 bills only the standard, global price and its long-context bands.",
 	cap: 'Daily token cap per model, input / output, shared by every caller and reset at midnight UTC. Input counts uncached tokens only. Over the cap the gateway answers 429 until midnight.',
 	long: 'Input / output $ per 1M once the prompt passes the threshold; the whole request moves to these rates. Thresholds and multipliers differ per provider and model: the (i) on each cell lists every line. Our BigQuery cost rollup prices base context only.',
 	routes:
@@ -368,7 +368,7 @@ function GatewayCatalog(props: { model: PricedModel; catalog: CatalogResponse })
 				<>
 					<small>
 						OpenRouter's prices for {props.model.upstream}, refreshed hourly. Muted rows are not
-						billed by agentgateway 1.6 yet (only standard, global and its long-context bands are).
+						billed by agentgateway 1.7 yet (only standard, global and its long-context bands are).
 					</small>
 					<div className="table-wrap">
 						<table className="price-lines">

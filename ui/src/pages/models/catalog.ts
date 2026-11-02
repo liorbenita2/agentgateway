@@ -49,7 +49,7 @@ export function tierLabel(tier: CatalogTier) {
 	return parts.join(' · ');
 }
 
-// agentgateway 1.6 bills only the standard, global price and its long-context bands.
+// agentgateway 1.7 bills only the standard, global price and its long-context bands.
 export function billedByGateway(tier: CatalogTier) {
 	return !tier.serviceTier && !tier.region;
 }
