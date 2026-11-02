@@ -2257,7 +2257,9 @@ pub mod to_messages {
 				output_tokens: 0,
 				cache_creation_input_tokens: None,
 				cache_read_input_tokens: None,
+				cache_creation: None,
 				service_tier: None,
+				iterations: Vec::new(),
 			};
 		};
 		// `counts()` folds thoughtsTokenCount into the completion count. Gemini reports the two
@@ -2272,7 +2274,9 @@ pub mod to_messages {
 			output_tokens: completion,
 			cache_creation_input_tokens: None,
 			cache_read_input_tokens: (cached > 0).then_some(cached),
+			cache_creation: None,
 			service_tier: None,
+			iterations: Vec::new(),
 		}
 	}
 
@@ -2439,6 +2443,8 @@ pub mod to_messages {
 						output_tokens: Some(self.pending_output_tokens),
 						cache_creation_input_tokens: None,
 						cache_read_input_tokens: self.pending_cache_read,
+						cache_creation: None,
+						iterations: Vec::new(),
 					},
 				}
 				.into_sse_tuple(),
