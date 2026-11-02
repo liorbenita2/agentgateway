@@ -57,6 +57,33 @@ export interface CatalogResponse {
 	providers: Record<string, { models: Record<string, CatalogModel> }>;
 }
 
-export function getCatalog() {
-	return requestJson<CatalogResponse>('/catalog');
+type RawRates = CatalogRates & { cacheWriteDetails?: Record<string, string> };
+
+function withWrite1h(rates: RawRates | undefined): CatalogRates | undefined {
+	if (!rates) return rates;
+	const { cacheWriteDetails, ...rest } = rates;
+	const write1h = cacheWriteDetails?.['1h'] ?? rest.cacheWrite1h;
+	return write1h === undefined ? rest : { ...rest, cacheWrite1h: write1h };
+}
+
+export async function getCatalog(): Promise<CatalogResponse> {
+	const raw = await requestJson<CatalogResponse>('/catalog');
+	const providers = Object.fromEntries(
+		Object.entries(raw.providers).map(([provider, { models }]) => [
+			provider,
+			{
+				models: Object.fromEntries(
+					Object.entries(models).map(([model, entry]) => [
+						model,
+						{
+							...entry,
+							rates: withWrite1h(entry.rates),
+							tiers: entry.tiers?.map(t => ({ ...t, rates: withWrite1h(t.rates) ?? {} }))
+						}
+					])
+				)
+			}
+		])
+	);
+	return { ...raw, providers };
 }
