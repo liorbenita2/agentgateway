@@ -39,6 +39,7 @@ export interface CatalogRates {
 	cacheRead?: string;
 	cacheWrite?: string;
 	cacheWrite1h?: string;
+	cacheWriteDetails?: Record<string, string>;
 }
 
 export interface CatalogTier {
@@ -57,6 +58,18 @@ export interface CatalogResponse {
 	providers: Record<string, { models: Record<string, CatalogModel> }>;
 }
 
-export function getCatalog() {
-	return requestJson<CatalogResponse>('/catalog');
+function withCacheWrite1h(rates: CatalogRates | undefined) {
+	const ttl1h = rates?.cacheWriteDetails?.['1h'];
+	if (rates && ttl1h !== undefined && rates.cacheWrite1h === undefined) rates.cacheWrite1h = ttl1h;
+}
+
+export async function getCatalog() {
+	const catalog = await requestJson<CatalogResponse>('/catalog');
+	for (const { models } of Object.values(catalog.providers)) {
+		for (const model of Object.values(models)) {
+			withCacheWrite1h(model.rates);
+			for (const tier of model.tiers ?? []) withCacheWrite1h(tier.rates);
+		}
+	}
+	return catalog;
 }
