@@ -1,6 +1,6 @@
 import { requestJson } from '@/api/base';
 
-// One rate-card row from config-service's /v1/rates, served by the tools host at <base>/prices.
+// One price row, built from the gateway catalog (catalogRates).
 export interface RateRow {
 	provider: string;
 	model: string;
@@ -15,17 +15,6 @@ export interface RateRow {
 	source_endpoint_tag: string | null;
 	effective_from: string | null;
 	effective_to: string | null;
-}
-
-export interface RatesResponse {
-	fetch_run_id: string;
-	fetched_at: string;
-	unit: string;
-	rates: RateRow[];
-}
-
-export function listRates() {
-	return requestJson<RatesResponse>('/prices');
 }
 
 // Daily token caps per model (-1 = uncapped), as the chart gives the limiter; served at <base>/caps.

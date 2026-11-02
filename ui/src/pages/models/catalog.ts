@@ -1,5 +1,5 @@
 import type { CatalogModel, CatalogRates, CatalogResponse, CatalogTier } from '@/api/pricesApi';
-import { baseRow, type PricedModel, type PriceProvider, perMillion } from '@/pages/models/pricing';
+import type { PricedModel, PriceProvider } from '@/pages/models/pricing';
 
 // Models-page provider -> agentgateway provider name in the price job's catalog.
 const CATALOG_PROVIDER: Partial<Record<PriceProvider, string>> = {
@@ -36,30 +36,6 @@ export function catalogEntry(
 		}
 	}
 	return null;
-}
-
-export interface CatalogDiff {
-	label: string;
-	ours: number | null;
-	gateway: number | null;
-}
-
-// Standard-tier lines where config-service (our cost views) and the gateway's catalog (llm.cost) disagree.
-export function catalogDiffs(entry: CatalogModel | null, model: PricedModel): CatalogDiff[] {
-	if (!model.rates) return [];
-	const out: CatalogDiff[] = [];
-	for (const c of CATALOG_COLUMNS) {
-		const ours = perMillion(baseRow(model.rates, c.line));
-		const raw = entry?.rates?.[c.key];
-		const gateway = raw ? Number(raw) : null;
-		if (ours === null && gateway === null) continue;
-		const same =
-			ours !== null &&
-			gateway !== null &&
-			Math.abs(ours - gateway) <= 1e-9 + 0.005 * Math.abs(ours);
-		if (!same) out.push({ label: c.label, ours, gateway });
-	}
-	return out;
 }
 
 export function tierLabel(tier: CatalogTier) {

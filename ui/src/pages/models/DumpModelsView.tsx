@@ -2,13 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Calculator, HelpCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import {
-	type CapsResponse,
-	type CatalogResponse,
-	getCatalog,
-	listCaps,
-	listRates
-} from '@/api/pricesApi';
+import { type CapsResponse, type CatalogResponse, getCatalog, listCaps } from '@/api/pricesApi';
 import {
 	Drawer,
 	EmptyState,
@@ -22,18 +16,13 @@ import {
 import { ProviderIcon } from '@/components/ProviderIcon';
 import { useStickyQueryParam } from '@/drawerRouteState';
 import type { DumpModel, StoresDump, VirtualModelRouting } from '@/gateway-admin';
-import {
-	billedByGateway,
-	CATALOG_COLUMNS,
-	catalogDiffs,
-	catalogEntry,
-	tierLabel
-} from '@/pages/models/catalog';
+import { billedByGateway, CATALOG_COLUMNS, catalogEntry, tierLabel } from '@/pages/models/catalog';
 import {
 	API_ROUTES,
 	type ApiRoute,
 	baseRow,
 	calculate,
+	catalogRates,
 	defaultParams,
 	describeDefaults,
 	fitParams,
@@ -72,12 +61,6 @@ const COLUMN_HELP: Record<string, string> = {
 export function DumpModelsView(props: { dump: StoresDump }) {
 	const [selectedKey, setSelectedKey] = useStickyQueryParam('model');
 	const [route, setRoute] = useState<ApiRoute>('completions');
-	const ratesQuery = useQuery({
-		queryKey: ['prices'],
-		queryFn: listRates,
-		retry: false,
-		staleTime: 5 * 60_000
-	});
 	const capsQuery = useQuery({
 		queryKey: ['caps'],
 		queryFn: listCaps,
@@ -92,10 +75,7 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 		staleTime: 5 * 60_000
 	});
 	const catalog = catalogQuery.data ?? null;
-	const rateIndex = useMemo(
-		() => (ratesQuery.data ? indexRates(ratesQuery.data.rates) : null),
-		[ratesQuery.data]
-	);
+	const rateIndex = useMemo(() => (catalog ? indexRates(catalogRates(catalog)) : null), [catalog]);
 	const priced = useMemo(() => priceModels(props.dump, rateIndex), [props.dump, rateIndex]);
 	const counts = useMemo(() => {
 		const out = new Map<ApiRoute, number>();
@@ -116,13 +96,8 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 
 	return (
 		<>
-			{ratesQuery.isError ? (
-				<StatusBanner state="warn" title="Prices unavailable">
-					config-service rates could not be loaded: {(ratesQuery.error as Error).message}
-				</StatusBanner>
-			) : null}
 			{catalogQuery.isError ? (
-				<StatusBanner state="warn" title="Gateway catalog unavailable">
+				<StatusBanner state="warn" title="Prices unavailable">
 					The ai21-model-catalog could not be loaded: {(catalogQuery.error as Error).message}
 				</StatusBanner>
 			) : null}
@@ -146,9 +121,7 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 							/>
 							<small>
 								{routeInfo?.path}
-								{ratesQuery.data
-									? ` · prices from config-service, fetched ${new Date(ratesQuery.data.fetched_at).toLocaleString()}`
-									: null}
+								{catalog ? ' · prices from ai21-model-catalog (OpenRouter, hourly)' : null}
 							</small>
 						</div>
 						<div className="table-wrap">
@@ -267,9 +240,6 @@ function ModelRow(props: {
 					<span className="price-th">
 						<strong>{model.model.name}</strong>
 						{rates ? <DefaultsTip model={model} /> : null}
-						{props.catalog && rates ? (
-							<GatewayPriceBadge model={model} catalog={props.catalog} />
-						) : null}
 					</span>
 					{model.upstream !== model.model.name ? <small>{model.upstream}</small> : null}
 				</div>
@@ -314,46 +284,6 @@ function ModelRow(props: {
 				</Tooltip>
 			</td>
 		</tr>
-	);
-}
-
-function GatewayPriceBadge(props: { model: PricedModel; catalog: CatalogResponse }) {
-	const entry = catalogEntry(props.catalog, props.model);
-	const diffs = catalogDiffs(entry, props.model);
-	if (entry && !diffs.length) return null;
-	const fmt = (v: number | null) => (v === null ? 'none' : `$${trimNumber(v)}`);
-	return (
-		<Tooltip
-			content={
-				<div className="price-tip">
-					<strong>
-						{entry ? 'Gateway bills a different price' : 'Gateway has no price for this model'}
-					</strong>
-					{entry ? (
-						<ul>
-							{diffs.map(d => (
-								<li key={d.label}>
-									{d.label}: config-service {fmt(d.ours)}, gateway {fmt(d.gateway)}
-								</li>
-							))}
-						</ul>
-					) : null}
-					<span>
-						{entry
-							? "agentgateway's llm.cost uses the gateway catalog (OpenRouter, hourly); our BigQuery cost views use config-service. Standard tier, global, $ per 1M."
-							: "Not in the price job's catalog, so agentgateway's llm.cost is 0 for it; our BigQuery cost views still price it from config-service."}
-					</span>
-				</div>
-			}
-		>
-			<button
-				className={entry ? 'badge warn price-diff' : 'badge muted price-diff'}
-				type="button"
-				aria-label={`Gateway price for ${props.model.model.name}`}
-			>
-				{entry ? '≠ gateway' : 'no gateway price'}
-			</button>
-		</Tooltip>
 	);
 }
 
@@ -427,7 +357,6 @@ function VariantsCell(props: { model: PricedModel; catalog: CatalogResponse }) {
 
 function GatewayCatalog(props: { model: PricedModel; catalog: CatalogResponse }) {
 	const entry = catalogEntry(props.catalog, props.model);
-	const diffs = catalogDiffs(entry, props.model);
 	return (
 		<div className="price-playground">
 			<span className="field-label">What the gateway bills (ai21-model-catalog)</span>
@@ -440,9 +369,6 @@ function GatewayCatalog(props: { model: PricedModel; catalog: CatalogResponse })
 					<small>
 						OpenRouter's prices for {props.model.upstream}, refreshed hourly. Muted rows are not
 						billed by agentgateway 1.6 yet (only standard, global and its long-context bands are).
-						{diffs.length
-							? ` Differs from config-service on: ${diffs.map(d => d.label.toLowerCase()).join(', ')}.`
-							: ' Standard prices match config-service.'}
 					</small>
 					<div className="table-wrap">
 						<table className="price-lines">
@@ -655,7 +581,7 @@ function unpricedReason(model: PricedModel) {
 	if (model.provider === 'vercel') return 'Not on the rate card; billed by Vercel AI Gateway.';
 	if (model.pattern) return 'Name pattern: priced per concrete model it matches.';
 	if (!('concrete' in model.model.kind)) return 'Virtual model: priced by its targets.';
-	return 'Not on the config-service rate card.';
+	return "Not in the price job's catalog: agentgateway's llm.cost is 0 for it.";
 }
 
 function PricePlayground(props: { model: PricedModel }) {

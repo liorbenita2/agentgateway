@@ -1,4 +1,4 @@
-import type { RateRow } from '@/api/pricesApi';
+import type { CatalogRates, CatalogResponse, RateRow } from '@/api/pricesApi';
 import type { DumpModel, StoresDump } from '@/gateway-admin';
 
 export type PriceProvider =
@@ -46,14 +46,14 @@ export const PROVIDER_ICONS: Record<PriceProvider, string> = {
 	other: 'custom'
 };
 
-// config-service's provider for each upstream; the others have no rate card.
-const RATE_CARD_PROVIDER: Partial<Record<PriceProvider, string>> = {
-	openai: 'openai',
-	anthropic: 'anthropic',
-	vertex: 'gcp.gemini',
-	gemini: 'gcp.gemini',
-	bedrock: 'bedrock',
-	together: 'together'
+// The gateway catalog's providers for each upstream; Google models try both of Google's.
+const RATE_CARD_PROVIDERS: Partial<Record<PriceProvider, string[]>> = {
+	openai: ['openai'],
+	anthropic: ['anthropic'],
+	vertex: ['gcp.vertex_ai', 'gcp.gemini'],
+	gemini: ['gcp.gemini', 'gcp.vertex_ai'],
+	bedrock: ['aws.bedrock'],
+	together: ['togetherai']
 };
 
 export interface RouteSupport {
@@ -221,6 +221,53 @@ function lookupRates(byModel: Map<string, ModelRates> | undefined, upstream: str
 	return null;
 }
 
+// Catalog line items, as the rows name them.
+const CATALOG_LINES: Array<[keyof CatalogRates, string]> = [
+	['input', 'input'],
+	['output', 'output'],
+	['cacheRead', 'cache_read'],
+	['cacheWrite', 'cache_write_5m'],
+	['cacheWrite1h', 'cache_write_1h']
+];
+
+// The price job's ai21-model-catalog ($ per 1M) as rows ($ per token): the standard rates plus each tier.
+export function catalogRates(catalog: CatalogResponse): RateRow[] {
+	const rows: RateRow[] = [];
+	for (const [provider, { models }] of Object.entries(catalog.providers)) {
+		for (const [model, entry] of Object.entries(models)) {
+			const variants = [
+				{
+					rates: entry.rates,
+					tier: {} as { serviceTier?: string; region?: string; contextOver?: number }
+				},
+				...(entry.tiers ?? []).map(t => ({ rates: t.rates, tier: t }))
+			];
+			for (const { rates, tier } of variants) {
+				for (const [key, line] of CATALOG_LINES) {
+					const value = rates?.[key];
+					if (value === undefined) continue;
+					rows.push({
+						provider,
+						model,
+						line_item: line,
+						service_tier: tier.serviceTier ?? 'standard',
+						context_tier: tier.contextOver ? 'long' : 'base',
+						context_min_tokens: tier.contextOver ?? 0,
+						region: tier.region ?? 'global',
+						unit: 'token',
+						rate_per_unit: String(Number(value) / PER_MILLION),
+						price_source: 'ai21-model-catalog',
+						source_endpoint_tag: null,
+						effective_from: null,
+						effective_to: null
+					});
+				}
+			}
+		}
+	}
+	return rows;
+}
+
 // --- Models -------------------------------------------------------------------------------
 
 export function priceModels(dump: StoresDump, rates: RateIndex | null): PricedModel[] {
@@ -261,8 +308,11 @@ export function priceModels(dump: StoresDump, rates: RateIndex | null): PricedMo
 		const r = resolve(model, 0);
 		const routes: RouteSupport[] =
 			r.provider === 'vercel' ? [{ route: 'native', native: true }] : routesFor(r.formats);
-		const card = RATE_CARD_PROVIDER[r.provider];
-		const found = card && rates && !r.pattern ? lookupRates(rates.get(card), r.upstream) : null;
+		const cards = RATE_CARD_PROVIDERS[r.provider] ?? [];
+		const found =
+			rates && !r.pattern
+				? (cards.map(card => lookupRates(rates.get(card), r.upstream)).find(Boolean) ?? null)
+				: null;
 		return {
 			model,
 			provider: r.provider,
