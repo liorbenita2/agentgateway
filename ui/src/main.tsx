@@ -11,6 +11,7 @@ import { createRoot } from 'react-dom/client';
 
 import { routerBasePath } from '@/basePath';
 import { Shell } from '@/components/Shell';
+import { ApiDocsPage } from '@/pages/ApiDocs';
 import { CelPage } from '@/pages/Cel';
 import { ClientSetupPage } from '@/pages/ClientSetup';
 import { CostsPage } from '@/pages/Costs';
@@ -131,6 +132,12 @@ const playgroundRoute = createRoute({
 	getParentRoute: () => appRoute,
 	path: '/llm/playground',
 	component: PlaygroundPage
+});
+
+const apiDocsRoute = createRoute({
+	getParentRoute: () => appRoute,
+	path: '/llm/api',
+	component: ApiDocsPage
 });
 
 const clientSetupRoute = createRoute({
@@ -256,6 +263,7 @@ const router = createRouter({
 			analyticsRoute,
 			keysRoute,
 			playgroundRoute,
+			apiDocsRoute,
 			clientSetupRoute,
 			mcpGetStartedRoute,
 			mcpServersRoute,

@@ -376,7 +376,9 @@ function navigationGroups(options: {
 			title: 'LLM',
 			items: [
 				{ to: '/llm/models', label: 'Models', icon: Bot },
-				{ to: '/llm/client-setup', label: 'Client Setup', icon: Cable }
+				{ to: '/llm/client-setup', label: 'Client Setup', icon: Cable },
+				{ to: '/llm/playground', label: 'Chat Playground', icon: Play },
+				{ to: '/llm/api', label: 'API', icon: FileCode2 }
 			]
 		});
 	}

@@ -6610,3 +6610,9 @@ textarea {
 	gap: 4px;
 	max-width: 220px;
 }
+
+/* Swagger UI has only a light theme. */
+.api-docs-panel {
+	background: #fff;
+	color: #3b4151;
+}
