@@ -1,56 +1,114 @@
-import { Bot, ImagePlus, Loader2, Send, Square, User, X } from 'lucide-react';
+import DOMPurify from 'dompurify';
+import {
+	ArrowUp,
+	Bot,
+	Brain,
+	Check,
+	Code2,
+	Copy,
+	ImagePlus,
+	Plus,
+	SlidersHorizontal,
+	Square,
+	Trash2,
+	X
+} from 'lucide-react';
+import { marked } from 'marked';
 import { useMemo, useRef, useState } from 'react';
 
 import { apiBase } from '@/api/base';
-import {
-	Dropdown,
-	Field,
-	FieldGroup,
-	PageHeader,
-	Panel,
-	StatusBanner
-} from '@/components/Primitives';
+import { Drawer, Dropdown, useDismissiblePopover } from '@/components/Primitives';
+import { ProviderIcon } from '@/components/ProviderIcon';
 import type { StoresDump } from '@/gateway-admin';
-import { useStoredStringState } from '@/hooks';
 import {
 	applyStreamEvent,
+	buildChatRequest,
+	CHAT_APIS,
+	type ChatApi,
+	type ChatSettings,
+	type ChatTurn,
 	type ChatUsage,
-	gatewayChatModelNames,
-	type StreamState,
+	chatCodeSnippets,
+	gatewayChatModels,
+	newStreamState,
 	splitSse
 } from '@/pages/gatewayChat';
-
-type ContentPart =
-	| { type: 'text'; text: string }
-	| { type: 'image_url'; image_url: { url: string } };
-
-type Turn = {
-	role: 'user' | 'assistant';
-	text: string;
-	images?: string[];
-	reasoning?: string;
-	usage?: ChatUsage;
-	model?: string;
-	ms?: number;
-};
+import {
+	PROVIDER_ICONS,
+	PROVIDER_LABELS,
+	type PriceProvider,
+	priceModels
+} from '@/pages/models/pricing';
 
 // The tools host sends <apiBase>/v1/* to the gateway's iap listener (IAP names the caller, no key needed).
 export const gatewayModelsBase = `${apiBase}/v1`;
 
+const MAX_PANELS = 3;
+
+type ModelOption = { name: string; provider: PriceProvider; upstream: string; apis: ChatApi[] };
+
+type Turn = ChatTurn & { reasoning?: string; usage?: ChatUsage; model?: string; ms?: number };
+
+type Panel = {
+	id: number;
+	model: string;
+	api: ChatApi;
+	settings: ChatSettings;
+	turns: Turn[];
+	loading: boolean;
+	error: string | null;
+};
+
+const defaultSettings = (): ChatSettings => ({ system: '', maxTokens: 4096, stop: [] });
+
+function useModelOptions(dump: StoresDump | null): ModelOption[] {
+	return useMemo(() => {
+		if (!dump) return [];
+		const names = new Set(gatewayChatModels(dump.models).map(model => model.name));
+		const options = new Map<string, ModelOption>();
+		for (const priced of priceModels(dump, null)) {
+			if (!names.has(priced.model.name) || options.has(priced.model.name)) continue;
+			const apis = priced.routes
+				.map(route => route.route)
+				.filter((route): route is ChatApi => route !== 'native');
+			options.set(priced.model.name, {
+				name: priced.model.name,
+				provider: priced.provider,
+				upstream: priced.upstream,
+				apis: apis.length ? apis : ['completions']
+			});
+		}
+		return [...options.values()].sort(
+			(a, b) => a.provider.localeCompare(b.provider) || a.name.localeCompare(b.name)
+		);
+	}, [dump]);
+}
+
 export function GatewayPlayground(props: { dump: StoresDump | null }) {
-	const models = useMemo(() => gatewayChatModelNames(props.dump?.models ?? []), [props.dump]);
-	const [storedModel, setModel] = useStoredStringState('gatewayPlaygroundModel', '');
-	const model = models.includes(storedModel) ? storedModel : (models[0] ?? '');
-	const [system, setSystem] = useState('');
-	const [temperature, setTemperature] = useState('');
-	const [maxTokens, setMaxTokens] = useState('4096');
+	const models = useModelOptions(props.dump);
+	const nextId = useRef(1);
+	const aborts = useRef(new Map<number, AbortController>());
+	const [panels, setPanels] = useState<Panel[]>(() => [newPanel(0, '')]);
 	const [prompt, setPrompt] = useState('');
 	const [images, setImages] = useState<string[]>([]);
-	const [turns, setTurns] = useState<Turn[]>([]);
-	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
-	const abort = useRef<AbortController | null>(null);
 	const fileInput = useRef<HTMLInputElement>(null);
+
+	const firstModel = models.find(model => model.name === storedModel()) ?? models[0];
+	// Panels start empty until the dump loads; give them the first model then.
+	const resolve = (panel: Panel) =>
+		panel.model || !firstModel
+			? panel
+			: { ...panel, model: firstModel.name, api: firstModel.apis[0] };
+	const resolved = panels.map(resolve);
+	const loading = resolved.some(panel => panel.loading);
+
+	function newPanel(id: number, model: string, api: ChatApi = 'completions'): Panel {
+		return { id, model, api, settings: defaultSettings(), turns: [], loading: false, error: null };
+	}
+
+	function update(id: number, change: (panel: Panel) => Panel) {
+		setPanels(current => current.map(panel => (panel.id === id ? change(resolve(panel)) : panel)));
+	}
 
 	async function addImages(files: FileList | null) {
 		const urls = await Promise.all(
@@ -69,48 +127,40 @@ export function GatewayPlayground(props: { dump: StoresDump | null }) {
 		setImages(current => [...current, ...urls]);
 	}
 
-	async function send() {
-		const text = prompt.trim();
-		if (!model || (!text && images.length === 0) || loading) return;
-		const userTurn: Turn = { role: 'user', text, images };
-		const history = [...turns, userTurn];
-		setTurns(history);
-		setPrompt('');
-		setImages([]);
-		setError(null);
-		setLoading(true);
+	async function run(panel: Panel, history: Turn[]) {
 		const controller = new AbortController();
-		abort.current = controller;
+		aborts.current.set(panel.id, controller);
 		const started = performance.now();
-		const state: StreamState = { content: '', reasoning: '' };
-		const show = () =>
-			setTurns([
-				...history,
-				{
-					role: 'assistant',
-					text: state.content,
-					reasoning: state.reasoning,
-					usage: state.usage,
-					model: state.model,
-					ms: Math.round(performance.now() - started)
-				}
-			]);
+		const state = newStreamState();
+		const show = (patch: Partial<Panel> = {}) =>
+			setPanels(current =>
+				current.map(item =>
+					item.id === panel.id
+						? {
+								...item,
+								...patch,
+								turns: [
+									...history,
+									{
+										role: 'assistant',
+										text: state.content,
+										reasoning: state.reasoning,
+										usage: { ...state.usage },
+										model: state.model,
+										ms: Math.round(performance.now() - started)
+									}
+								]
+							}
+						: item
+				)
+			);
 		try {
-			const response = await fetch(`${gatewayModelsBase}/chat/completions`, {
+			const request = buildChatRequest(panel.api, panel.model, history, panel.settings);
+			const response = await fetch(`${gatewayModelsBase}${request.path}`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 'Content-Type': 'application/json', ...request.headers },
 				signal: controller.signal,
-				body: JSON.stringify({
-					model,
-					stream: true,
-					stream_options: { include_usage: true },
-					...(maxTokens.trim() ? { max_tokens: Number(maxTokens) } : {}),
-					...(temperature.trim() ? { temperature: Number(temperature) } : {}),
-					messages: [
-						...(system.trim() ? [{ role: 'system', content: system.trim() }] : []),
-						...history.map(toOpenAi)
-					]
-				})
+				body: JSON.stringify(request.body)
 			});
 			if (!response.ok || !response.body) {
 				throw new Error((await response.text()) || `${response.status} ${response.statusText}`);
@@ -125,213 +175,549 @@ export function GatewayPlayground(props: { dump: StoresDump | null }) {
 				buffer += decoder.decode(chunk.value, { stream: true });
 				const { events, rest } = splitSse(buffer);
 				buffer = rest;
-				for (const event of events) done = applyStreamEvent(state, event) || done;
+				for (const event of events) done = applyStreamEvent(panel.api, state, event) || done;
 				show();
 			}
-			show();
+			show({ loading: false });
 		} catch (err) {
-			if (!controller.signal.aborted) setError(err instanceof Error ? err.message : String(err));
-			if (state.content || state.reasoning) show();
+			const error = controller.signal.aborted
+				? null
+				: err instanceof Error
+					? err.message
+					: String(err);
+			if (state.content || state.reasoning) show({ loading: false, error });
+			else
+				setPanels(current =>
+					current.map(item => (item.id === panel.id ? { ...item, loading: false, error } : item))
+				);
 		} finally {
-			setLoading(false);
-			abort.current = null;
+			aborts.current.delete(panel.id);
 		}
 	}
 
+	function send() {
+		const text = prompt.trim();
+		if ((!text && images.length === 0) || loading) return;
+		const userTurn: Turn = { role: 'user', text, images };
+		const targets = resolved.filter(panel => panel.model);
+		const histories = new Map(targets.map(panel => [panel.id, [...panel.turns, userTurn]]));
+		setPanels(
+			resolved.map(panel =>
+				histories.has(panel.id)
+					? { ...panel, turns: histories.get(panel.id) ?? [], loading: true, error: null }
+					: panel
+			)
+		);
+		setPrompt('');
+		setImages([]);
+		for (const panel of targets) void run(panel, histories.get(panel.id) ?? []);
+	}
+
 	return (
-		<div className="page-stack">
-			<PageHeader
-				title="Chat Playground"
-				description={`Chat with any model this gateway routes. Calls go to ${gatewayModelsBase}/chat/completions; IAP names you, so no key is needed.`}
-			/>
-			{models.length === 0 ? (
-				<StatusBanner state="warn" title="No routed models found in the config dump" />
-			) : null}
-			{error ? (
-				<StatusBanner state="bad" title="Request failed">
-					{error}
-				</StatusBanner>
-			) : null}
-			<section className="playground-shell">
-				<Panel className="playground-config-panel">
-					<div className="section-heading">
-						<h3>Configuration</h3>
-					</div>
-					<div className="playground-setup-bar">
-						<div className="playground-control-row">
-							<FieldGroup label="Model">
-								<Dropdown
-									ariaLabel="Model"
-									value={model}
-									placeholder="No models"
-									searchable
-									options={models.map(name => ({ value: name, label: name, searchText: name }))}
-									onChange={setModel}
-								/>
-							</FieldGroup>
-							<div aria-hidden="true" />
-						</div>
-						<div className="playground-control-row">
-							<Field label="Max tokens">
-								<input
-									inputMode="numeric"
-									value={maxTokens}
-									onChange={event => setMaxTokens(event.target.value.replace(/\D/g, ''))}
-								/>
-							</Field>
-							<Field label="Temperature" hint="Empty uses the provider default.">
-								<input
-									inputMode="decimal"
-									value={temperature}
-									onChange={event => setTemperature(event.target.value)}
-								/>
-							</Field>
-						</div>
-					</div>
-					<Field label="System prompt">
-						<textarea rows={3} value={system} onChange={event => setSystem(event.target.value)} />
-					</Field>
-				</Panel>
-				<Panel className="playground-chat-panel">
-					<div className="mini-chat">
-						{turns.length === 0 ? <div className="chat-empty">No messages yet.</div> : null}
-						{turns.map((turn, index) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: turns are append-only
-							<TurnView turn={turn} key={index} />
-						))}
-						{loading && turns.at(-1)?.role === 'user' ? (
-							<div className="chat-message assistant pending">
-								<div className="chat-avatar">
-									<Bot size={16} />
-								</div>
-								<div className="chat-bubble">
-									<Loader2 className="spin" size={15} />
-									Waiting for the first token
-								</div>
-							</div>
-						) : null}
-					</div>
-					{images.length ? (
-						<div className="button-row">
-							{images.map((url, index) => (
+		<div className="gwchat">
+			<div className="gwchat-title">
+				<h2>Chat</h2>
+				<p>
+					Test models through this gateway: Chat Completions, Responses or Messages, whichever each
+					model serves.
+				</p>
+			</div>
+			<div
+				className="gwchat-panels"
+				style={{ gridTemplateColumns: `repeat(${resolved.length}, minmax(0, 1fr))` }}
+			>
+				{resolved.map((panel, index) => (
+					<ChatPanel
+						key={panel.id}
+						panel={panel}
+						models={models}
+						canAdd={index === resolved.length - 1 && resolved.length < MAX_PANELS}
+						canRemove={resolved.length > 1}
+						onChange={change => update(panel.id, change)}
+						onAdd={() => {
+							const id = nextId.current++;
+							setPanels([...resolved, newPanel(id, panel.model, panel.api)]);
+						}}
+						onRemove={() => {
+							aborts.current.get(panel.id)?.abort();
+							setPanels(resolved.filter(item => item.id !== panel.id));
+						}}
+					/>
+				))}
+			</div>
+			<div className="gwchat-composer">
+				{images.length ? (
+					<div className="gwchat-attachments">
+						{images.map((url, index) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: removal is by position
+							<div className="gwchat-attachment" key={index}>
+								<img src={url} alt="" />
 								<button
-									// biome-ignore lint/suspicious/noArrayIndexKey: removal is by position
-									key={index}
 									type="button"
-									className="button"
-									title="Remove image"
+									aria-label="Remove image"
 									onClick={() => setImages(current => current.filter((_, i) => i !== index))}
 								>
-									<img src={url} alt="" style={{ height: 32 }} />
-									<X size={14} />
+									<X size={12} />
 								</button>
-							))}
-						</div>
-					) : null}
-					<Field label="User message">
-						<textarea
-							rows={5}
-							value={prompt}
-							onChange={event => setPrompt(event.target.value)}
-							onPaste={event => {
-								if (event.clipboardData.files.length) void addImages(event.clipboardData.files);
-							}}
-							onKeyDown={event => {
-								if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-									event.preventDefault();
-									void send();
-								}
-							}}
-							placeholder="Ask something. Paste or attach images for vision models."
-						/>
-					</Field>
-					<div className="button-row">
-						{loading ? (
-							<button className="button" type="button" onClick={() => abort.current?.abort()}>
-								<Square size={16} />
-								Stop
-							</button>
-						) : (
-							<button
-								className="button primary"
-								type="button"
-								disabled={!model || (!prompt.trim() && images.length === 0)}
-								onClick={() => void send()}
-							>
-								<Send size={16} />
-								Send
-							</button>
-						)}
-						<button className="button" type="button" onClick={() => fileInput.current?.click()}>
-							<ImagePlus size={16} />
-							Image
-						</button>
-						<input
-							ref={fileInput}
-							type="file"
-							accept="image/*"
-							multiple
-							hidden
-							onChange={event => {
-								void addImages(event.target.files);
-								event.target.value = '';
-							}}
-						/>
+							</div>
+						))}
+					</div>
+				) : null}
+				<textarea
+					rows={2}
+					value={prompt}
+					onChange={event => setPrompt(event.target.value)}
+					onPaste={event => {
+						if (event.clipboardData.files.length) void addImages(event.clipboardData.files);
+					}}
+					onKeyDown={event => {
+						if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+							event.preventDefault();
+							send();
+						}
+					}}
+					placeholder={
+						resolved.length > 1
+							? `Message ${resolved.length} models...`
+							: 'What would you like to know?'
+					}
+				/>
+				<div className="gwchat-composer-footer">
+					<button
+						type="button"
+						className="gwchat-icon-button"
+						title="Add images"
+						onClick={() => fileInput.current?.click()}
+					>
+						<ImagePlus size={16} />
+					</button>
+					<input
+						ref={fileInput}
+						type="file"
+						accept="image/*"
+						multiple
+						hidden
+						onChange={event => {
+							void addImages(event.target.files);
+							event.target.value = '';
+						}}
+					/>
+					<span className="gwchat-hint">
+						Calls {gatewayModelsBase} as you (IAP), billed to ai21
+					</span>
+					{loading ? (
 						<button
-							className="button"
 							type="button"
-							disabled={loading || turns.length === 0}
+							className="gwchat-send"
+							title="Stop"
 							onClick={() => {
-								setTurns([]);
-								setError(null);
+								for (const controller of aborts.current.values()) controller.abort();
 							}}
 						>
-							Clear
+							<Square size={14} />
 						</button>
-					</div>
-				</Panel>
-			</section>
+					) : (
+						<button
+							type="button"
+							className="gwchat-send"
+							title="Send"
+							disabled={!prompt.trim() && images.length === 0}
+							onClick={send}
+						>
+							<ArrowUp size={16} />
+						</button>
+					)}
+				</div>
+			</div>
 		</div>
 	);
 }
 
-function toOpenAi(turn: Turn) {
-	if (!turn.images?.length) return { role: turn.role, content: turn.text };
-	const parts: ContentPart[] = [
-		...(turn.text ? [{ type: 'text' as const, text: turn.text }] : []),
-		...turn.images.map(url => ({ type: 'image_url' as const, image_url: { url } }))
-	];
-	return { role: turn.role, content: parts };
+function storedModel() {
+	return localStorage.getItem('gatewayPlaygroundModel') ?? '';
 }
 
-function TurnView(props: { turn: Turn }) {
+function ChatPanel(props: {
+	panel: Panel;
+	models: ModelOption[];
+	canAdd: boolean;
+	canRemove: boolean;
+	onChange: (change: (panel: Panel) => Panel) => void;
+	onAdd: () => void;
+	onRemove: () => void;
+}) {
+	const { panel, models } = props;
+	const model = models.find(item => item.name === panel.model);
+	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [codeOpen, setCodeOpen] = useState(false);
+	const popover = useDismissiblePopover<HTMLDivElement>(settingsOpen, () => setSettingsOpen(false));
+	const setSettings = (patch: Partial<ChatSettings>) =>
+		props.onChange(current => ({ ...current, settings: { ...current.settings, ...patch } }));
+
+	return (
+		<section className="gwchat-panel">
+			<header className="gwchat-panel-header">
+				<Dropdown
+					ariaLabel="Model"
+					className="gwchat-model"
+					value={panel.model}
+					placeholder="No models"
+					searchable
+					options={models.map(item => ({
+						value: item.name,
+						label: item.name,
+						description: `${PROVIDER_LABELS[item.provider]}${item.upstream !== item.name ? ` · ${item.upstream}` : ''}`,
+						icon: <ProviderIcon provider={PROVIDER_ICONS[item.provider]} />,
+						searchText: `${item.name} ${item.upstream} ${PROVIDER_LABELS[item.provider]}`
+					}))}
+					onChange={name => {
+						localStorage.setItem('gatewayPlaygroundModel', name);
+						const next = models.find(item => item.name === name);
+						props.onChange(current => ({
+							...current,
+							model: name,
+							api: next?.apis.includes(current.api) ? current.api : (next?.apis[0] ?? 'completions')
+						}));
+					}}
+				/>
+				<div className="gwchat-apis" role="tablist" aria-label="API">
+					{CHAT_APIS.map(api => {
+						const supported = model?.apis.includes(api.value) ?? api.value === 'completions';
+						return (
+							<button
+								key={api.value}
+								type="button"
+								role="tab"
+								aria-selected={panel.api === api.value}
+								disabled={!supported || panel.loading}
+								title={
+									supported
+										? `POST /v1${api.path}`
+										: `${panel.model} is not served on /v1${api.path}`
+								}
+								onClick={() => props.onChange(current => ({ ...current, api: api.value }))}
+							>
+								{api.label}
+							</button>
+						);
+					})}
+				</div>
+				<div className="gwchat-panel-actions">
+					<button
+						type="button"
+						className="gwchat-icon-button"
+						title="Code"
+						onClick={() => setCodeOpen(true)}
+					>
+						<Code2 size={16} />
+					</button>
+					<div className="gwchat-popover-anchor" ref={popover}>
+						<button
+							type="button"
+							className="gwchat-icon-button"
+							title="Settings"
+							aria-expanded={settingsOpen}
+							onClick={() => setSettingsOpen(open => !open)}
+						>
+							<SlidersHorizontal size={16} />
+						</button>
+						{settingsOpen ? (
+							<SettingsPopover api={panel.api} settings={panel.settings} onChange={setSettings} />
+						) : null}
+					</div>
+					<button
+						type="button"
+						className="gwchat-icon-button"
+						title="Clear conversation"
+						disabled={panel.loading || panel.turns.length === 0}
+						onClick={() => props.onChange(current => ({ ...current, turns: [], error: null }))}
+					>
+						<Trash2 size={16} />
+					</button>
+					{props.canAdd ? (
+						<button
+							type="button"
+							className="gwchat-icon-button"
+							title="Compare with another model"
+							onClick={props.onAdd}
+						>
+							<Plus size={16} />
+						</button>
+					) : null}
+					{props.canRemove ? (
+						<button
+							type="button"
+							className="gwchat-icon-button"
+							title="Close"
+							onClick={props.onRemove}
+						>
+							<X size={16} />
+						</button>
+					) : null}
+				</div>
+			</header>
+			<div className="gwchat-messages">
+				{panel.turns.length === 0 ? (
+					<div className="gwchat-empty">
+						<Bot size={28} />
+						<span>{panel.model || 'Pick a model'}</span>
+						<small>{CHAT_APIS.find(api => api.value === panel.api)?.label}</small>
+					</div>
+				) : null}
+				{panel.turns.map((turn, index) => (
+					<TurnView
+						// biome-ignore lint/suspicious/noArrayIndexKey: turns are append-only
+						key={index}
+						turn={turn}
+						streaming={panel.loading && index === panel.turns.length - 1}
+					/>
+				))}
+				{panel.loading && panel.turns.at(-1)?.role === 'user' ? (
+					<div className="gwchat-turn assistant">
+						<div className="gwchat-typing">
+							<span />
+							<span />
+							<span />
+						</div>
+					</div>
+				) : null}
+				{panel.error ? <div className="gwchat-error">{panel.error}</div> : null}
+			</div>
+			{codeOpen ? <CodeDrawer panel={panel} onClose={() => setCodeOpen(false)} /> : null}
+		</section>
+	);
+}
+
+function SettingsPopover(props: {
+	api: ChatApi;
+	settings: ChatSettings;
+	onChange: (patch: Partial<ChatSettings>) => void;
+}) {
+	const { settings } = props;
+	const [stop, setStop] = useState('');
+	return (
+		<div className="gwchat-settings">
+			<h4>Model settings</h4>
+			<label>
+				<span>System prompt</span>
+				<textarea
+					rows={3}
+					value={settings.system}
+					onChange={event => props.onChange({ system: event.target.value })}
+				/>
+			</label>
+			<NumberSetting
+				label="Max output tokens"
+				value={settings.maxTokens}
+				min={1}
+				max={65536}
+				step={1}
+				onChange={maxTokens => props.onChange({ maxTokens })}
+			/>
+			<NumberSetting
+				label="Temperature"
+				value={settings.temperature}
+				min={0}
+				max={2}
+				step={0.01}
+				onChange={temperature => props.onChange({ temperature })}
+			/>
+			<NumberSetting
+				label="Top P"
+				value={settings.topP}
+				min={0}
+				max={1}
+				step={0.01}
+				onChange={topP => props.onChange({ topP })}
+			/>
+			{props.api !== 'responses' ? (
+				<label>
+					<span>Stop sequences</span>
+					<div className="gwchat-chips">
+						{settings.stop.map(item => (
+							<span className="gwchat-chip" key={item}>
+								{item}
+								<button
+									type="button"
+									aria-label={`Remove ${item}`}
+									onClick={() => props.onChange({ stop: settings.stop.filter(s => s !== item) })}
+								>
+									<X size={10} />
+								</button>
+							</span>
+						))}
+						<input
+							value={stop}
+							placeholder="Type and press Enter"
+							onChange={event => setStop(event.target.value)}
+							onKeyDown={event => {
+								if (event.key === 'Enter' && stop && !settings.stop.includes(stop)) {
+									event.preventDefault();
+									props.onChange({ stop: [...settings.stop, stop] });
+									setStop('');
+								}
+							}}
+						/>
+					</div>
+				</label>
+			) : null}
+			<small>Empty means the provider default.</small>
+		</div>
+	);
+}
+
+function NumberSetting(props: {
+	label: string;
+	value: number | undefined;
+	min: number;
+	max: number;
+	step: number;
+	onChange: (value: number | undefined) => void;
+}) {
+	return (
+		<label className="gwchat-number">
+			<span>
+				{props.label}
+				<input
+					inputMode="decimal"
+					value={props.value ?? ''}
+					placeholder="default"
+					onChange={event => {
+						const raw = event.target.value.trim();
+						props.onChange(raw === '' || Number.isNaN(Number(raw)) ? undefined : Number(raw));
+					}}
+				/>
+			</span>
+			<input
+				type="range"
+				min={props.min}
+				max={props.max}
+				step={props.step}
+				value={props.value ?? props.min}
+				onChange={event => props.onChange(Number(event.target.value))}
+			/>
+		</label>
+	);
+}
+
+function CodeDrawer(props: { panel: Panel; onClose: () => void }) {
+	const { panel } = props;
+	const [tab, setTab] = useState<'curl' | 'python'>('curl');
+	const turns: ChatTurn[] = [
+		...panel.turns.map(({ role, text, images }) => ({ role, text, images })),
+		...(panel.turns.at(-1)?.role === 'user' ? [] : [{ role: 'user' as const, text: 'Say hi.' }])
+	];
+	const { body } = buildChatRequest(panel.api, panel.model, turns, panel.settings);
+	const snippets = chatCodeSnippets(
+		panel.api,
+		`${window.location.origin}${gatewayModelsBase}`,
+		body
+	);
+	return (
+		<Drawer
+			title={`${panel.model} · ${CHAT_APIS.find(api => api.value === panel.api)?.label}`}
+			onClose={props.onClose}
+			dirty={false}
+		>
+			<div className="gwchat-apis" role="tablist">
+				{(['curl', 'python'] as const).map(item => (
+					<button
+						key={item}
+						type="button"
+						role="tab"
+						aria-selected={tab === item}
+						onClick={() => setTab(item)}
+					>
+						{item === 'curl' ? 'curl' : 'Python'}
+					</button>
+				))}
+			</div>
+			<CodeBlock code={snippets[tab]} />
+		</Drawer>
+	);
+}
+
+function CodeBlock(props: { code: string }) {
+	const [copied, setCopied] = useState(false);
+	return (
+		<div className="gwchat-code">
+			<button
+				type="button"
+				className="gwchat-icon-button"
+				title="Copy"
+				onClick={() => {
+					void navigator.clipboard.writeText(props.code);
+					setCopied(true);
+					setTimeout(() => setCopied(false), 1500);
+				}}
+			>
+				{copied ? <Check size={14} /> : <Copy size={14} />}
+			</button>
+			<pre>{props.code}</pre>
+		</div>
+	);
+}
+
+function Markdown(props: { text: string }) {
+	const html = useMemo(
+		() => DOMPurify.sanitize(marked.parse(props.text, { async: false, gfm: true, breaks: true })),
+		[props.text]
+	);
+	// biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized by DOMPurify
+	return <div className="gwchat-markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+function TurnView(props: { turn: Turn; streaming: boolean }) {
 	const { turn } = props;
-	const Icon = turn.role === 'assistant' ? Bot : User;
+	const [copied, setCopied] = useState(false);
+	if (turn.role === 'user') {
+		return (
+			<div className="gwchat-turn user">
+				<div className="gwchat-user-bubble">
+					{turn.images?.map((url, index) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: images of one turn never reorder
+						<img key={index} src={url} alt="" />
+					))}
+					{turn.text}
+				</div>
+			</div>
+		);
+	}
 	const meta = [
 		turn.model,
-		turn.usage?.prompt_tokens != null ? `${turn.usage.prompt_tokens} in` : null,
-		turn.usage?.completion_tokens != null ? `${turn.usage.completion_tokens} out` : null,
+		turn.usage?.input != null ? `${turn.usage.input} in` : null,
+		turn.usage?.output != null ? `${turn.usage.output} out` : null,
 		turn.ms != null ? `${(turn.ms / 1000).toFixed(1)}s` : null
 	].filter(Boolean);
 	return (
-		<div className={`chat-message ${turn.role}`}>
-			<div className="chat-avatar">
-				<Icon size={16} />
-			</div>
-			<div className="chat-bubble">
-				{turn.reasoning ? (
-					<details className="message-inspector">
-						<summary>Reasoning</summary>
-						<div style={{ whiteSpace: 'pre-wrap' }}>{turn.reasoning}</div>
-					</details>
-				) : null}
-				{turn.images?.map((url, index) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: images of one turn never reorder
-					<img key={index} src={url} alt="" style={{ maxHeight: 160, display: 'block' }} />
-				))}
-				<div style={{ whiteSpace: 'pre-wrap' }}>{turn.text}</div>
-				{meta.length ? <small>{meta.join(' · ')}</small> : null}
-			</div>
+		<div className="gwchat-turn assistant">
+			{turn.reasoning ? (
+				<details className="gwchat-reasoning" open={props.streaming && !turn.text}>
+					<summary>
+						<Brain size={14} />
+						{props.streaming && !turn.text ? 'Thinking...' : 'Reasoning'}
+					</summary>
+					<div>{turn.reasoning}</div>
+				</details>
+			) : null}
+			<Markdown text={turn.text} />
+			{!props.streaming ? (
+				<div className="gwchat-turn-meta">
+					<button
+						type="button"
+						className="gwchat-icon-button"
+						title="Copy"
+						onClick={() => {
+							void navigator.clipboard.writeText(turn.text);
+							setCopied(true);
+							setTimeout(() => setCopied(false), 1500);
+						}}
+					>
+						{copied ? <Check size={13} /> : <Copy size={13} />}
+					</button>
+					<span>{meta.join(' · ')}</span>
+				</div>
+			) : null}
 		</div>
 	);
 }

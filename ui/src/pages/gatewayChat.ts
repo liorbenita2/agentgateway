@@ -5,38 +5,223 @@ function requestable(model: DumpModel) {
 	return !('concrete' in model.kind) || model.kind.concrete.visibility === 'public';
 }
 
-/** Names people can pick: the iap listener's models when there is one, else every listener's; no wildcards. */
-export function gatewayChatModelNames(models: DumpModel[]) {
+/** The models people can call: the iap listener's when there is one, else every caller listener's; no wildcards. */
+export function gatewayChatModels(models: DumpModel[]) {
 	const iap = models.filter(model => model.listenerKey.endsWith('.iap'));
 	const source = iap.length ? iap : models.filter(model => !model.listenerKey.endsWith('.models'));
-	const names = new Set(
-		source.filter(model => requestable(model) && !model.name.includes('*')).map(model => model.name)
-	);
-	return [...names].sort((left, right) => left.localeCompare(right));
+	const byName = new Map<string, DumpModel>();
+	for (const model of source) {
+		if (requestable(model) && !model.name.includes('*') && !byName.has(model.name)) {
+			byName.set(model.name, model);
+		}
+	}
+	return [...byName.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
-export type ChatUsage = {
-	prompt_tokens?: number;
-	completion_tokens?: number;
-	total_tokens?: number;
+export function gatewayChatModelNames(models: DumpModel[]) {
+	return gatewayChatModels(models).map(model => model.name);
+}
+
+export type ChatApi = 'completions' | 'responses' | 'messages';
+
+export const CHAT_APIS: Array<{ value: ChatApi; label: string; path: string }> = [
+	{ value: 'completions', label: 'Chat Completions', path: '/chat/completions' },
+	{ value: 'responses', label: 'Responses', path: '/responses' },
+	{ value: 'messages', label: 'Messages', path: '/messages' }
+];
+
+export type ChatTurn = { role: 'user' | 'assistant'; text: string; images?: string[] };
+
+export type ChatSettings = {
+	system: string;
+	maxTokens?: number;
+	temperature?: number;
+	topP?: number;
+	stop: string[];
 };
 
-export type StreamState = { content: string; reasoning: string; usage?: ChatUsage; model?: string };
+export type ChatUsage = { input?: number; output?: number };
 
-/** Folds one SSE `data:` payload of a chat completions stream into the state; returns true on [DONE]. */
-export function applyStreamEvent(state: StreamState, data: string): boolean {
-	const payload = data.trim();
+export type StreamState = { content: string; reasoning: string; usage: ChatUsage; model?: string };
+
+export const newStreamState = (): StreamState => ({ content: '', reasoning: '', usage: {} });
+
+function dataUrlParts(url: string) {
+	const match = /^data:([^;,]+);base64,(.*)$/.exec(url);
+	return match ? { mediaType: match[1], data: match[2] } : null;
+}
+
+/** The body for one turn of the conversation on the chosen API, streaming. */
+export function buildChatRequest(
+	api: ChatApi,
+	model: string,
+	turns: ChatTurn[],
+	settings: ChatSettings
+): { path: string; headers: Record<string, string>; body: Record<string, unknown> } {
+	const path = CHAT_APIS.find(item => item.value === api)?.path ?? '/chat/completions';
+	const system = settings.system.trim();
+	const sampling = {
+		...(settings.temperature != null ? { temperature: settings.temperature } : {}),
+		...(settings.topP != null ? { top_p: settings.topP } : {})
+	};
+	if (api === 'messages') {
+		return {
+			path,
+			headers: { 'anthropic-version': '2023-06-01' },
+			body: {
+				model,
+				stream: true,
+				max_tokens: settings.maxTokens ?? 4096,
+				...(system ? { system } : {}),
+				...sampling,
+				...(settings.stop.length ? { stop_sequences: settings.stop } : {}),
+				messages: turns.map(turn => ({
+					role: turn.role,
+					content: turn.images?.length
+						? [
+								...turn.images.flatMap(url => {
+									const image = dataUrlParts(url);
+									return image
+										? [
+												{
+													type: 'image',
+													source: { type: 'base64', media_type: image.mediaType, data: image.data }
+												}
+											]
+										: [];
+								}),
+								...(turn.text ? [{ type: 'text', text: turn.text }] : [])
+							]
+						: turn.text
+				}))
+			}
+		};
+	}
+	if (api === 'responses') {
+		return {
+			path,
+			headers: {},
+			body: {
+				model,
+				stream: true,
+				...(system ? { instructions: system } : {}),
+				...(settings.maxTokens != null ? { max_output_tokens: settings.maxTokens } : {}),
+				...sampling,
+				input: turns.map(turn =>
+					turn.role === 'user' && turn.images?.length
+						? {
+								role: 'user',
+								content: [
+									...(turn.text ? [{ type: 'input_text', text: turn.text }] : []),
+									...turn.images.map(url => ({ type: 'input_image', image_url: url }))
+								]
+							}
+						: { role: turn.role, content: turn.text }
+				)
+			}
+		};
+	}
+	return {
+		path,
+		headers: {},
+		body: {
+			model,
+			stream: true,
+			stream_options: { include_usage: true },
+			...(settings.maxTokens != null ? { max_tokens: settings.maxTokens } : {}),
+			...sampling,
+			...(settings.stop.length ? { stop: settings.stop } : {}),
+			messages: [
+				...(system ? [{ role: 'system', content: system }] : []),
+				...turns.map(turn =>
+					turn.images?.length
+						? {
+								role: turn.role,
+								content: [
+									...(turn.text ? [{ type: 'text', text: turn.text }] : []),
+									...turn.images.map(url => ({ type: 'image_url', image_url: { url } }))
+								]
+							}
+						: { role: turn.role, content: turn.text }
+				)
+			]
+		}
+	};
+}
+
+export type SseEvent = { event?: string; data: string };
+
+/** Splits buffered SSE text into complete events and the unfinished rest. */
+export function splitSse(buffer: string): { events: SseEvent[]; rest: string } {
+	const blocks = buffer.split(/\r?\n\r?\n/);
+	const rest = blocks.pop() ?? '';
+	const events: SseEvent[] = [];
+	for (const block of blocks) {
+		let event: string | undefined;
+		const data: string[] = [];
+		for (const line of block.split(/\r?\n/)) {
+			if (line.startsWith('event:')) event = line.slice(6).trim();
+			else if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+		}
+		if (data.length) events.push({ event, data: data.join('\n') });
+	}
+	return { events, rest };
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: SSE payloads of three APIs, read defensively
+type Json = Record<string, any>;
+
+function errorMessage(error: unknown) {
+	if (typeof error === 'string') return error;
+	const message = (error as Json | undefined)?.message;
+	return typeof message === 'string' ? message : JSON.stringify(error);
+}
+
+/** Folds one SSE event of the chosen API into the state; returns true when the stream is done. */
+export function applyStreamEvent(api: ChatApi, state: StreamState, sse: SseEvent): boolean {
+	const payload = sse.data.trim();
 	if (!payload) return false;
 	if (payload === '[DONE]') return true;
-	const event = JSON.parse(payload) as {
-		model?: string;
-		usage?: ChatUsage | null;
-		error?: { message?: string };
-		choices?: Array<{ delta?: { content?: string | null; reasoning_content?: string | null } }>;
-	};
-	if (event.error) throw new Error(event.error.message ?? JSON.stringify(event.error));
+	const event = JSON.parse(payload) as Json;
+	const type: string = event.type ?? sse.event ?? '';
+	if (event.error || type === 'error') throw new Error(errorMessage(event.error ?? event));
+	if (api === 'messages') {
+		if (type === 'message_start') {
+			state.model = event.message?.model ?? state.model;
+			state.usage.input = event.message?.usage?.input_tokens ?? state.usage.input;
+		} else if (type === 'content_block_delta') {
+			if (event.delta?.type === 'text_delta') state.content += event.delta.text ?? '';
+			if (event.delta?.type === 'thinking_delta') state.reasoning += event.delta.thinking ?? '';
+		} else if (type === 'message_delta') {
+			state.usage.output = event.usage?.output_tokens ?? state.usage.output;
+			if (event.usage?.input_tokens) state.usage.input = event.usage.input_tokens;
+		} else if (type === 'message_stop') {
+			return true;
+		}
+		return false;
+	}
+	if (api === 'responses') {
+		if (type === 'response.output_text.delta') state.content += event.delta ?? '';
+		else if (
+			type === 'response.reasoning_summary_text.delta' ||
+			type === 'response.reasoning_text.delta'
+		) {
+			state.reasoning += event.delta ?? '';
+		} else if (type === 'response.failed' || type === 'response.incomplete') {
+			const reason = event.response?.error ?? event.response?.incomplete_details;
+			if (type === 'response.failed') throw new Error(errorMessage(reason ?? 'response failed'));
+		}
+		const response = event.response as Json | undefined;
+		if (response?.model) state.model = response.model;
+		if (response?.usage) {
+			state.usage = { input: response.usage.input_tokens, output: response.usage.output_tokens };
+		}
+		return type === 'response.completed';
+	}
 	if (event.model) state.model = event.model;
-	if (event.usage) state.usage = event.usage;
+	if (event.usage) {
+		state.usage = { input: event.usage.prompt_tokens, output: event.usage.completion_tokens };
+	}
 	for (const choice of event.choices ?? []) {
 		if (choice.delta?.content) state.content += choice.delta.content;
 		if (choice.delta?.reasoning_content) state.reasoning += choice.delta.reasoning_content;
@@ -44,17 +229,99 @@ export function applyStreamEvent(state: StreamState, data: string): boolean {
 	return false;
 }
 
-/** Splits buffered SSE text into complete `data:` payloads and the unfinished rest. */
-export function splitSse(buffer: string): { events: string[]; rest: string } {
-	const blocks = buffer.split(/\r?\n\r?\n/);
-	const rest = blocks.pop() ?? '';
-	const events = blocks.flatMap(block =>
-		block
-			.split(/\r?\n/)
-			.filter(line => line.startsWith('data:'))
-			.map(line => line.slice(5).trimStart())
+// Images become a placeholder so the snippet stays readable.
+function snippetBody(body: Record<string, unknown>) {
+	return JSON.stringify(
+		body,
+		function (this: Record<string, unknown>, key, value) {
+			if (key === 'data' && this.type === 'base64') return '<base64>';
+			return typeof value === 'string' && value.startsWith('data:')
+				? 'data:image/...;base64,...'
+				: value;
+		},
+		2
 	);
-	return { events, rest };
+}
+
+/** curl and Python for the same call, through the tools host with an IAP token. */
+export function chatCodeSnippets(api: ChatApi, baseUrl: string, body: Record<string, unknown>) {
+	const path = CHAT_APIS.find(item => item.value === api)?.path ?? '/chat/completions';
+	const project = /tools\.([a-z]+-[a-z0-9]+)\.ai21\.com/.exec(baseUrl)?.[1];
+	const tokenCmd = `ai21 --yes iap-token --project ${project ? `${project}-main` : '<gcp-project>'}`;
+	const json = snippetBody(body);
+	const curl = [
+		`IAP=$(${tokenCmd} | tail -1)`,
+		`curl -N ${baseUrl}${path} \\`,
+		'  -H "Proxy-Authorization: Bearer $IAP" \\',
+		"  -H 'Content-Type: application/json' \\",
+		...(api === 'messages' ? ["  -H 'anthropic-version: 2023-06-01' \\"] : []),
+		`  -d '${json.replaceAll("'", "'\\''")}'`
+	].join('\n');
+	const { messages, input, model, stream, stream_options, ...rest } = body as Json;
+	const kwargs = Object.entries(rest)
+		.map(([key, value]) => `    ${key}=${JSON.stringify(value)},`)
+		.join('\n');
+	const pyJson = (value: unknown) =>
+		snippetBody(value as Record<string, unknown>)
+			.replaceAll('true', 'True')
+			.replaceAll('false', 'False')
+			.replaceAll('null', 'None');
+	const header = [
+		'import subprocess',
+		'',
+		`iap = subprocess.check_output(${JSON.stringify(tokenCmd.split(' '))}, text=True).strip().splitlines()[-1]`
+	];
+	const python =
+		api === 'messages'
+			? [
+					'import anthropic',
+					...header,
+					'client = anthropic.Anthropic(',
+					`    base_url=${JSON.stringify(baseUrl.replace(/\/v1$/, ''))},`,
+					'    api_key="none",',
+					'    default_headers={"Proxy-Authorization": f"Bearer {iap}"},',
+					')',
+					'with client.messages.stream(',
+					`    model=${JSON.stringify(model)},`,
+					kwargs,
+					`    messages=${pyJson(messages)},`,
+					') as stream:',
+					'    for text in stream.text_stream:',
+					'        print(text, end="", flush=True)'
+				].join('\n')
+			: [
+					'from openai import OpenAI',
+					...header,
+					'client = OpenAI(',
+					`    base_url=${JSON.stringify(baseUrl)},`,
+					'    api_key="none",',
+					'    default_headers={"Proxy-Authorization": f"Bearer {iap}"},',
+					')',
+					api === 'responses'
+						? [
+								'stream = client.responses.create(',
+								`    model=${JSON.stringify(model)},`,
+								kwargs,
+								`    input=${pyJson(input)},`,
+								'    stream=True,',
+								')',
+								'for event in stream:',
+								'    if event.type == "response.output_text.delta":',
+								'        print(event.delta, end="", flush=True)'
+							].join('\n')
+						: [
+								'stream = client.chat.completions.create(',
+								`    model=${JSON.stringify(model)},`,
+								kwargs,
+								`    messages=${pyJson(messages)},`,
+								'    stream=True,',
+								')',
+								'for chunk in stream:',
+								'    if chunk.choices and chunk.choices[0].delta.content:',
+								'        print(chunk.choices[0].delta.content, end="", flush=True)'
+							].join('\n')
+				].join('\n');
+	return { curl, python: python.replace(/\n\n+/g, '\n').replace(/^(import subprocess)$/m, '$1\n') };
 }
 
 const messagesSchema = {
