@@ -2757,6 +2757,7 @@ async fn make_backend_call(
 					model_route_type,
 					req.uri().path(),
 				);
+				let route_type = provider.provider.legacy_detect_route(route_type);
 				let target = match &provider.host_override {
 					Some(target) => target.clone(),
 					None => provider
@@ -2951,6 +2952,7 @@ async fn make_backend_call(
 				model_route_type,
 				req.uri().path(),
 			);
+			let route_type = llm.provider.legacy_detect_route(route_type);
 			if matches!(route_type, RouteType::Detect | RouteType::Passthrough)
 				&& let Some(provider_model) = llm.provider.override_model()
 			{

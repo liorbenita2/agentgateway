@@ -1217,6 +1217,19 @@ impl AIProvider {
 			})
 	}
 
+	/// ai21 fork: our 1.4.1 controller can't declare SystemOne/Decisions on a Custom provider, so those routes pass through as before.
+	pub fn legacy_detect_route(&self, route_type: RouteType) -> RouteType {
+		use custom::ProviderFormat::{Decisions, SystemOne};
+		if matches!(self, AIProvider::Custom(_))
+			&& matches!(route_type, RouteType::SystemOne | RouteType::Decisions)
+			&& !self.supports_format(SystemOne, "")
+			&& !self.supports_format(Decisions, "")
+		{
+			return RouteType::Detect;
+		}
+		route_type
+	}
+
 	pub fn supports_format(&self, format: custom::ProviderFormat, request_model: &str) -> bool {
 		self.supported_formats(request_model).contains(&format)
 	}

@@ -2956,6 +2956,50 @@ fn setup_request_openai_applies_prefixed_path_without_host_override() {
 }
 
 #[rstest::rstest]
+#[case::no_native_formats(vec![], RouteType::SystemOne, RouteType::Detect)]
+#[case::decisions_too(vec![], RouteType::Decisions, RouteType::Detect)]
+#[case::declares_systemone(vec![custom::ProviderFormat::SystemOne], RouteType::SystemOne, RouteType::SystemOne)]
+#[case::other_routes_unchanged(vec![], RouteType::Completions, RouteType::Completions)]
+fn custom_provider_without_native_formats_passes_systemone_through(
+	#[case] formats: Vec<custom::ProviderFormat>,
+	#[case] route: RouteType,
+	#[case] expected: RouteType,
+) {
+	let provider = AIProvider::Custom(custom::Provider {
+		model_override: None,
+		provider_override: None,
+		formats: formats
+			.into_iter()
+			.map(|format| custom::ProviderFormatConfig { format, path: None })
+			.collect(),
+	});
+	assert_eq!(provider.legacy_detect_route(route), expected);
+}
+
+#[test]
+fn custom_detect_systemone_keeps_v1_under_a_typesafe_base_path() {
+	let mut req =
+		crate::http::tests_common::request("https://example.com/v1/systemone", http::Method::POST, &[]);
+	AIProvider::Custom(custom::Provider {
+		model_override: None,
+		provider_override: None,
+		formats: vec![],
+	})
+	.setup_request(
+		&mut req,
+		RouteType::Detect,
+		None,
+		None,
+		Some("/typesafe/v1"),
+		true,
+		None,
+		None,
+	)
+	.expect("setup_request should succeed");
+	assert_eq!(req.uri().path(), "/typesafe/v1/systemone");
+}
+
+#[rstest::rstest]
 #[case::v1("/v1", "/v1/systemone")]
 #[case::nested("/openai/v1", "/openai/v1/systemone")]
 #[case::root("/", "/v1/systemone")]
