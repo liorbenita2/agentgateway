@@ -1642,12 +1642,12 @@ pub mod from_messages {
 			Some(effort) => crate::types::thinking_budget_for_anthropic_effort(effort),
 			None => match req.thinking.as_ref()? {
 				mt::ThinkingInput::Disabled {} => return None,
-				mt::ThinkingInput::Adaptive {} => {
+				mt::ThinkingInput::Adaptive { .. } => {
 					// Gemini 3 adapts on its own when thinkingConfig is omitted; 2.5 needs an
 					// explicit -1 to mean dynamic.
 					return (!uses_thinking_levels(model)).then(|| super::thinking_budget_config(-1));
 				},
-				mt::ThinkingInput::Enabled { budget_tokens } => *budget_tokens,
+				mt::ThinkingInput::Enabled { budget_tokens, .. } => *budget_tokens,
 			},
 		};
 
@@ -2334,6 +2334,7 @@ pub mod to_messages {
 				cache_creation_input_tokens: None,
 				cache_read_input_tokens: None,
 				service_tier: None,
+				..Default::default()
 			};
 		};
 		// `counts()` folds thoughtsTokenCount into the completion count. Gemini reports the two
@@ -2349,6 +2350,7 @@ pub mod to_messages {
 			cache_creation_input_tokens: None,
 			cache_read_input_tokens: (cached > 0).then_some(cached),
 			service_tier: None,
+			..Default::default()
 		}
 	}
 
@@ -2515,6 +2517,7 @@ pub mod to_messages {
 						output_tokens: Some(self.pending_output_tokens),
 						cache_creation_input_tokens: None,
 						cache_read_input_tokens: self.pending_cache_read,
+						..Default::default()
 					},
 				}
 				.into_sse_tuple(),
