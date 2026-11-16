@@ -30,5 +30,9 @@ jobs:
           build-args: |
             VERSION=${{ steps.tag.outputs.tag }}
             GIT_REVISION=${{ github.sha }}
+            # Admin-port UI at tools.<org>-<env>.ai21.com/agentgateway/ui/ behind a strip-prefix route.
+            UI_BASE=/agentgateway/ui/
+            UI_ROUTER_BASE=/agentgateway/ui
+            UI_API_BASE=/agentgateway
           cache-from: type=gha
           cache-to: type=gha,mode=max
