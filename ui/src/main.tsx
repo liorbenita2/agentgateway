@@ -9,6 +9,7 @@ import {
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { AI21_PAGES, isAi21Page } from '@/ai21Pages';
 import { routerBasePath } from '@/basePath';
 import { Shell } from '@/components/Shell';
 import { ApiDocsPage } from '@/pages/ApiDocs';
@@ -59,6 +60,9 @@ const loginRoute = createRoute({
 const appRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	id: 'app',
+	beforeLoad: ({ location }) => {
+		if (!isAi21Page(location.pathname)) throw redirect({ to: AI21_PAGES[0], replace: true });
+	},
 	component: Shell
 });
 

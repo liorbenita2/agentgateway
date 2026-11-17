@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { isAi21Page } from '@/ai21Pages';
 import { apiBase } from '@/api/base';
 import type { RuntimeUser } from '@/api/runtimeApi';
 import logoDark from '@/assets/agw-dark.svg';
@@ -116,7 +117,9 @@ export function Shell() {
 		hasTraffic,
 		hasBinds,
 		dumpMode
-	});
+	})
+		.map(group => ({ ...group, items: group.items.filter(item => isAi21Page(item.to)) }))
+		.filter(group => group.items.length > 0);
 	const nav = navGroups.flatMap(group => group.items);
 	const matchedNav = nav
 		.filter(item => navItemActive(item, router.location.pathname))
