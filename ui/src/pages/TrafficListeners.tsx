@@ -20,10 +20,7 @@ import {
 import { useStickyQueryParam } from '@/drawerRouteState';
 import type { LocalTLSServerConfig } from '@/gateway-config';
 import { useConfigDumpMode, useRawGatewayConfig, useUpdateConfig } from '@/hooks';
-import {
-	ReadonlyModeBanner,
-	TrafficDumpListenersView
-} from '@/pages/traffic/TrafficConfigDumpPanel';
+import { TrafficDumpListenersView } from '@/pages/traffic/TrafficConfigDumpPanel';
 import { TrafficPolicySection } from '@/pages/traffic/TrafficPolicySection';
 import { type SchemaHelp, useSchemaHelp } from '@/schemaHelp';
 import { listenerContexts, listenerDisplayName, trafficStats } from '@/traffic';
@@ -53,7 +50,6 @@ export function TrafficListenersPage() {
 					title="Traffic Listeners"
 					description="Read-only listener inventory from the active gateway dump."
 				/>
-				<ReadonlyModeBanner />
 				<TrafficDumpListenersView dump={mode.data.dump} />
 			</div>
 		);

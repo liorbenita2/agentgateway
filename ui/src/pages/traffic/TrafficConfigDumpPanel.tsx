@@ -51,18 +51,6 @@ export type DumpRouteRow = {
 	route: Route | TCPRoute;
 };
 
-export function ReadonlyModeBanner() {
-	return (
-		<div className="readonly-mode-banner">
-			<strong>Readonly mode</strong>
-			<span>
-				Configuration is managed by XDS. This view reflects the active runtime dump; editing is
-				disabled.
-			</span>
-		</div>
-	);
-}
-
 export function TrafficDumpOverview(props: {
 	dump?: AdminConfigDump | null;
 	isLoading?: boolean;

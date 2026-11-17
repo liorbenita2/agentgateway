@@ -93,7 +93,6 @@ import {
 	virtualModelStrategy,
 	virtualModelSummary
 } from '@/pages/models/virtualModelUtils';
-import { ReadonlyModeBanner } from '@/pages/traffic/TrafficConfigDumpPanel';
 import { AuthorizationPolicyEditor } from '@/policies/AuthorizationPolicyEditor';
 import { KeyValueEditor } from '@/policies/PolicyFormControls';
 import { CollapsiblePolicySection } from '@/policies/PolicyLayout';
@@ -130,7 +129,6 @@ export function ModelsPage() {
 					title="LLM Models"
 					description="Models by API route, priced from the gateway's ai21-model-catalog (OpenRouter, hourly). Open a model for the price playground and every price variant."
 				/>
-				<ReadonlyModeBanner />
 				<DumpModelsView dump={mode.data.dump} />
 			</div>
 		);

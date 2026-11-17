@@ -17,7 +17,7 @@ import {
 } from '@/hooks';
 import { McpSettingsDrawer } from '@/pages/McpServers';
 import { LlmSettingsDrawer } from '@/pages/models/LlmSettingsDrawer';
-import { ReadonlyModeBanner, TrafficDumpOverview } from '@/pages/traffic/TrafficConfigDumpPanel';
+import { TrafficDumpOverview } from '@/pages/traffic/TrafficConfigDumpPanel';
 import { useSchemaHelp } from '@/schemaHelp';
 import { trafficStats } from '@/traffic';
 import type { GatewayConfig } from '@/types';
@@ -118,7 +118,6 @@ export function HomePage() {
 		return (
 			<div className="page-stack">
 				<PageHeader title="Gateway Overview" />
-				<ReadonlyModeBanner />
 				<TrafficDumpOverview dump={mode.data?.dump} />
 			</div>
 		);

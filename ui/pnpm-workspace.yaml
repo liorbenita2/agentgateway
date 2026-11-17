@@ -10,3 +10,7 @@ pmOnFail: warn
 overrides:
   ajv>fast-uri: 3.1.9
   monaco-editor>dompurify: 3.4.17
+
+# swagger-ui-dist's telemetry postinstall; never run it.
+allowBuilds:
+  '@scarf/scarf': false

@@ -228,11 +228,6 @@ export function Shell() {
 							previous configuration. Fix the configuration and save it to retry.
 						</StatusBanner>
 					)}
-					{runtime.data?.ui.configStoreMode === 'readOnly' && (
-						<StatusBanner state="info" title="Read-only mode">
-							The UI is configured as read-only. Editing is disabled.
-						</StatusBanner>
-					)}
 					<Outlet />
 				</main>
 			</div>
@@ -376,7 +371,9 @@ function navigationGroups(options: {
 			title: 'LLM',
 			items: [
 				{ to: '/llm/models', label: 'Models', icon: Bot },
-				{ to: '/llm/client-setup', label: 'Client Setup', icon: Cable }
+				{ to: '/llm/client-setup', label: 'Client Setup', icon: Cable },
+				{ to: '/llm/playground', label: 'Chat Playground', icon: Play },
+				{ to: '/llm/api', label: 'API', icon: FileCode2 }
 			]
 		});
 	}

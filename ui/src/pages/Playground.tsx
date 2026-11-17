@@ -33,6 +33,7 @@ import { corsNeedsUpdate, currentOrigin, playgroundCorsPolicy, waitForLlmCors } 
 import { hasKeyValue, keyLabel } from '@/credentialDisplay';
 import { llmPlaygroundEndpoint, mcpPlaygroundEndpoint } from '@/gatewayUrls';
 import {
+	useConfigDumpMode,
 	useLlmConfigData,
 	useMcpConfigData,
 	useStoredStringState,
@@ -46,6 +47,7 @@ import {
 	resolveModelName,
 	wildcardMatchesModel
 } from '@/modelResolution';
+import { GatewayPlayground } from '@/pages/GatewayPlayground';
 import type { CorsPolicy, LlmModel, LlmProvider, ProviderName } from '@/types';
 
 type ChatMessage = {
@@ -112,6 +114,14 @@ const legacySecretStorageKeys = [
 ];
 
 export function PlaygroundPage() {
+	const mode = useConfigDumpMode();
+	if (mode.isLoading) return null;
+	// XDS mode has no local LLM config: chat through the tools host's model APIs instead.
+	if (mode.data?.mode === 'dump') return <GatewayPlayground dump={mode.data.dump} />;
+	return <LocalPlaygroundPage />;
+}
+
+function LocalPlaygroundPage() {
 	const {
 		config,
 		hybrid,
