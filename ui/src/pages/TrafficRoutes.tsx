@@ -31,7 +31,7 @@ import {
 	useUpdateConfig,
 	useUpsertConfigResource
 } from '@/hooks';
-import { ReadonlyModeBanner, TrafficDumpRoutesView } from '@/pages/traffic/TrafficConfigDumpPanel';
+import { TrafficDumpRoutesView } from '@/pages/traffic/TrafficConfigDumpPanel';
 import { TrafficPolicySection } from '@/pages/traffic/TrafficPolicySection';
 import { type SchemaHelp, useSchemaHelp } from '@/schemaHelp';
 import {
@@ -88,7 +88,6 @@ export function TrafficRoutesPage() {
 					title="Traffic Routes"
 					description="Read-only route inventory from the active gateway dump."
 				/>
-				<ReadonlyModeBanner />
 				<TrafficDumpRoutesView dump={mode.data.dump} />
 			</div>
 		);

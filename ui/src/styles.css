@@ -5571,23 +5571,6 @@ textarea {
 	gap: 14px;
 }
 
-.readonly-mode-banner {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	border: 1px solid var(--line);
-	border-radius: 8px;
-	background: var(--surface);
-	padding: 10px 12px;
-	color: var(--muted);
-	font-size: 13px;
-}
-
-.readonly-mode-banner strong {
-	color: var(--text);
-	font-weight: 600;
-}
-
 .traffic-dump-header {
 	display: flex;
 	align-items: flex-start;

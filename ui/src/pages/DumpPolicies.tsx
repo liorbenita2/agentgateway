@@ -11,7 +11,6 @@ import {
 } from '@/components/Primitives';
 import { useStickyQueryParam } from '@/drawerRouteState';
 import { useConfigDumpMode } from '@/hooks';
-import { ReadonlyModeBanner } from '@/pages/traffic/TrafficConfigDumpPanel';
 
 type TargetedPolicy = {
 	key: string;
@@ -35,7 +34,6 @@ export function DumpPoliciesPage() {
 				title="Policies"
 				description="Read-only top-level policies from the active gateway dump."
 			/>
-			<ReadonlyModeBanner />
 
 			<Panel>
 				{mode.isLoading ? (
