@@ -1,19 +1,40 @@
 import { useQuery } from '@tanstack/react-query';
-import { Calculator, HelpCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+	Drawer,
+	DrawerBackdrop,
+	DrawerClose,
+	DrawerContent,
+	DrawerDescription,
+	DrawerTitle
+} from '@ui-sdk/react/drawer';
+import {
+	SegmentedControl,
+	SegmentedControlIndicator,
+	SegmentedControlItem
+} from '@ui-sdk/react/segmented-control';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectItemIndicator,
+	SelectTrigger,
+	SelectValue
+} from '@ui-sdk/react/select';
+import { Switch, SwitchThumb } from '@ui-sdk/react/switch';
+import { Calculator, Check, ChevronDown, HelpCircle, X } from 'lucide-react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import { type CapsResponse, type CatalogResponse, getCatalog, listCaps } from '@/api/pricesApi';
 import {
-	Drawer,
 	EmptyState,
 	Field,
 	Panel,
-	SegmentedControl,
 	StatusBanner,
 	Tooltip,
 	YamlBlock
 } from '@/components/Primitives';
 import { ProviderIcon } from '@/components/ProviderIcon';
+import '@/styles/ai21.css';
 import { useStickyQueryParam } from '@/drawerRouteState';
 import type { DumpModel, StoresDump, VirtualModelRouting } from '@/gateway-admin';
 import { billedByGateway, CATALOG_COLUMNS, catalogEntry, tierLabel } from '@/pages/models/catalog';
@@ -110,13 +131,17 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 				) : (
 					<>
 						<div className="price-route-bar">
-							<SegmentedControl
-								ariaLabel="API route"
+							<Seg
+								label="API route"
 								value={route}
 								onChange={setRoute}
 								options={API_ROUTES.filter(r => counts.get(r.value)).map(r => ({
 									value: r.value,
-									label: `${r.label} (${counts.get(r.value)})`
+									label: (
+										<>
+											{r.label} <span className="ai21-seg-count">{counts.get(r.value)}</span>
+										</>
+									)
 								}))}
 							/>
 							<small>
@@ -162,47 +187,125 @@ export function DumpModelsView(props: { dump: StoresDump }) {
 				)}
 			</Panel>
 
-			{selected ? (
-				<Drawer
-					title={selected.model.name}
-					headerActions={<span className="badge">{PROVIDER_LABELS[selected.provider]}</span>}
-					onClose={() => setSelectedKey(null)}
-					dirty={false}
-				>
-					<div className="drawer-summary-list">
-						<div>
-							<span>Provider model</span>
-							<strong>{selected.upstream}</strong>
-						</div>
-						<div>
-							<span>Routes</span>
-							<strong>
-								{selected.routes
-									.map(
-										r =>
-											`${API_ROUTES.find(a => a.value === r.route)?.label}${r.native ? '' : ' (translated)'}`
-									)
-									.join(', ') || '—'}
-							</strong>
-						</div>
-						<div>
-							<span>Target</span>
-							<strong>{modelTarget(selected.model).summary}</strong>
-						</div>
-						<div>
-							<span>Rate card</span>
-							<strong>{selected.rates ? selected.rates.slug : '—'}</strong>
-						</div>
-					</div>
-					<PricePlayground key={selected.model.key} model={selected} />
-					{catalog ? <GatewayCatalog model={selected} catalog={catalog} /> : null}
-					<details className="price-yaml">
-						<summary>Model YAML</summary>
-						<YamlBlock value={selected.model} />
-					</details>
-				</Drawer>
-			) : null}
+			<Drawer
+				side="right"
+				open={Boolean(selected)}
+				onOpenChange={open => {
+					if (!open) setSelectedKey(null);
+				}}
+			>
+				<DrawerBackdrop />
+				<DrawerContent className="ai21-drawer">
+					{selected ? (
+						<>
+							<header className="ai21-drawer-header">
+								<span className="ai21-drawer-icon">
+									<ProviderIcon provider={PROVIDER_ICONS[selected.provider]} />
+								</span>
+								<div>
+									<DrawerTitle>{selected.model.name}</DrawerTitle>
+									<DrawerDescription>{PROVIDER_LABELS[selected.provider]}</DrawerDescription>
+								</div>
+								<DrawerClose data-variant="ghost" aria-label="Close">
+									<X size={16} />
+								</DrawerClose>
+							</header>
+							<div className="ai21-drawer-body">
+								<div className="drawer-summary-list">
+									<div>
+										<span>Provider model</span>
+										<strong>{selected.upstream}</strong>
+									</div>
+									<div>
+										<span>Routes</span>
+										<strong>
+											{selected.routes
+												.map(
+													r =>
+														`${API_ROUTES.find(a => a.value === r.route)?.label}${r.native ? '' : ' (translated)'}`
+												)
+												.join(', ') || '—'}
+										</strong>
+									</div>
+									<div>
+										<span>Target</span>
+										<strong>{modelTarget(selected.model).summary}</strong>
+									</div>
+									<div>
+										<span>Rate card</span>
+										<strong>{selected.rates ? selected.rates.slug : '—'}</strong>
+									</div>
+								</div>
+								<PricePlayground key={selected.model.key} model={selected} />
+								{catalog ? <GatewayCatalog model={selected} catalog={catalog} /> : null}
+								<details className="price-yaml">
+									<summary>Model YAML</summary>
+									<YamlBlock value={selected.model} />
+								</details>
+							</div>
+						</>
+					) : null}
+				</DrawerContent>
+			</Drawer>
 		</>
+	);
+}
+
+function Seg<T extends string>(props: {
+	label: string;
+	value: T;
+	onChange: (value: T) => void;
+	options: Array<{ value: T; label: ReactNode }>;
+}) {
+	return (
+		<SegmentedControl
+			aria-label={props.label}
+			className="ai21-seg"
+			value={props.value}
+			onValueChange={value => {
+				if (value) props.onChange(value as T);
+			}}
+		>
+			<SegmentedControlIndicator />
+			{props.options.map(option => (
+				<SegmentedControlItem key={option.value} value={option.value}>
+					{option.label}
+				</SegmentedControlItem>
+			))}
+		</SegmentedControl>
+	);
+}
+
+function Choice(props: {
+	label: string;
+	value: string;
+	options: string[];
+	disabled?: boolean;
+	onChange: (value: string) => void;
+}) {
+	return (
+		<Select
+			value={props.value}
+			disabled={props.disabled}
+			onValueChange={value => {
+				if (typeof value === 'string') props.onChange(value);
+			}}
+		>
+			<SelectTrigger className="ai21-select" aria-label={props.label}>
+				<SelectValue />
+				<ChevronDown size={14} aria-hidden="true" />
+			</SelectTrigger>
+			<SelectContent>
+				{props.options.map(option => (
+					<SelectItem key={option} value={option}>
+						{option}
+						<SelectItemIndicator>
+							<Check size={14} aria-hidden="true" />
+						</SelectItemIndicator>
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }
 
@@ -653,8 +756,8 @@ function PricePlayground(props: { model: PricedModel }) {
 						label="Cache TTL"
 						tooltip='cache_control.ttl on the request. "5m" is the default; "1h" costs more per written token but survives longer gaps between calls.'
 					>
-						<SegmentedControl
-							ariaLabel="Cache TTL"
+						<Seg
+							label="Cache TTL"
 							value={fitted.ttl}
 							onChange={v => set('ttl', v)}
 							options={[
@@ -669,17 +772,13 @@ function PricePlayground(props: { model: PricedModel }) {
 						label="Service tier"
 						tooltip="service_tier on the request (OpenAI flex/priority, Gemini). Flex is cheaper and slower; priority costs more for lower latency."
 					>
-						<select
+						<Choice
+							label="Service tier"
 							value={fitted.serviceTier}
 							disabled={fitted.batch}
-							onChange={e => set('serviceTier', e.target.value)}
-						>
-							{options.serviceTiers.map(tier => (
-								<option key={tier} value={tier}>
-									{tier}
-								</option>
-							))}
-						</select>
+							options={options.serviceTiers}
+							onChange={v => set('serviceTier', v)}
+						/>
 					</Field>
 				) : null}
 				{options.regions.length > 1 ? (
@@ -687,13 +786,12 @@ function PricePlayground(props: { model: PricedModel }) {
 						label="Region"
 						tooltip="Where the provider serves the request. Regional endpoints (Vertex us/europe, Bedrock regions) can cost more than global."
 					>
-						<select value={fitted.region} onChange={e => set('region', e.target.value)}>
-							{options.regions.map(region => (
-								<option key={region} value={region}>
-									{region}
-								</option>
-							))}
-						</select>
+						<Choice
+							label="Region"
+							value={fitted.region}
+							options={options.regions}
+							onChange={v => set('region', v)}
+						/>
 					</Field>
 				) : null}
 				{options.batch ? (
@@ -702,11 +800,13 @@ function PricePlayground(props: { model: PricedModel }) {
 						tooltip="Batch API jobs: asynchronous, usually half price. Not used by gateway traffic."
 					>
 						<span className="price-check">
-							<input
-								type="checkbox"
+							<Switch
+								aria-label="Batch API job"
 								checked={fitted.batch}
-								onChange={e => set('batch', e.target.checked)}
-							/>
+								onCheckedChange={checked => set('batch', checked)}
+							>
+								<SwitchThumb />
+							</Switch>
 							Batch API job
 						</span>
 					</Field>

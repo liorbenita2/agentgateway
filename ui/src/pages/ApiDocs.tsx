@@ -4,6 +4,7 @@ import { apiBase } from '@/api/base';
 import { PageHeader, Panel, StatusBanner } from '@/components/Primitives';
 import { useConfigDumpMode } from '@/hooks';
 import { gatewayChatModelNames, gatewayOpenApi } from '@/pages/gatewayChat';
+import '@/styles/ai21.css';
 
 // models-gateway's listing path, which the chart serves when modelListing is on.
 const LISTING_PATH = '/api/v1/endpoints';

@@ -1,24 +1,61 @@
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from '@ui-sdk/react/collapsible';
+import {
+	Combobox,
+	ComboboxContent,
+	ComboboxEmpty,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxItemIndicator,
+	ComboboxList,
+	ComboboxTrigger,
+	ComboboxValue
+} from '@ui-sdk/react/combobox';
+import {
+	Drawer,
+	DrawerBackdrop,
+	DrawerClose,
+	DrawerContent,
+	DrawerDescription,
+	DrawerTitle
+} from '@ui-sdk/react/drawer';
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@ui-sdk/react/popover';
+import {
+	SegmentedControl,
+	SegmentedControlIndicator,
+	SegmentedControlItem
+} from '@ui-sdk/react/segmented-control';
+import {
+	Slider,
+	SliderControl,
+	SliderIndicator,
+	SliderThumb,
+	SliderTrack
+} from '@ui-sdk/react/slider';
+import { Tabs, TabsList, TabsPanel, TabsTab } from '@ui-sdk/react/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@ui-sdk/react/tooltip';
 import DOMPurify from 'dompurify';
 import {
 	ArrowUp,
 	Bot,
 	Brain,
 	Check,
+	ChevronDown,
 	Code2,
 	Copy,
 	ImagePlus,
 	Plus,
+	Search,
 	SlidersHorizontal,
 	Square,
 	Trash2,
 	X
 } from 'lucide-react';
 import { marked } from 'marked';
-import { useMemo, useRef, useState } from 'react';
+import { type ComponentProps, type ReactNode, useMemo, useRef, useState } from 'react';
 
 import { apiBase } from '@/api/base';
-import { Drawer, Dropdown, useDismissiblePopover } from '@/components/Primitives';
 import { ProviderIcon } from '@/components/ProviderIcon';
+import '@/styles/ai21.css';
 import type { StoresDump } from '@/gateway-admin';
 import {
 	applyStreamEvent,
@@ -283,14 +320,9 @@ export function GatewayPlayground(props: { dump: StoresDump | null }) {
 					}
 				/>
 				<div className="gwchat-composer-footer">
-					<button
-						type="button"
-						className="gwchat-icon-button"
-						title="Add images"
-						onClick={() => fileInput.current?.click()}
-					>
+					<IconButton label="Add images" onClick={() => fileInput.current?.click()}>
 						<ImagePlus size={16} />
-					</button>
+					</IconButton>
 					<input
 						ref={fileInput}
 						type="file"
@@ -337,6 +369,84 @@ function storedModel() {
 	return localStorage.getItem('gatewayPlaygroundModel') ?? '';
 }
 
+// One icon button with a tooltip; `render` lets it also be another part's trigger.
+function IconButton(
+	props: { label: string; children: ReactNode } & Omit<
+		ComponentProps<typeof TooltipTrigger>,
+		'children'
+	>
+) {
+	const { label, children, render, ...rest } = props;
+	return (
+		<Tooltip delay={300}>
+			<TooltipTrigger data-variant="ghost" aria-label={label} render={render} {...rest}>
+				{children}
+			</TooltipTrigger>
+			<TooltipContent>{label}</TooltipContent>
+		</Tooltip>
+	);
+}
+
+function ModelPicker(props: {
+	value: string;
+	models: ModelOption[];
+	onChange: (name: string) => void;
+}) {
+	const [button, setButton] = useState<HTMLButtonElement | null>(null);
+	const [query, setQuery] = useState('');
+	const current = props.models.find(item => item.name === props.value);
+	return (
+		<Combobox
+			value={props.value || null}
+			onValueChange={value => {
+				if (typeof value === 'string' && value) props.onChange(value);
+			}}
+			query={query}
+			onQueryChange={setQuery}
+			onOpenChange={open => open && setQuery('')}
+			onOpenChangeComplete={open => !open && button?.focus()}
+			autoHighlight="always"
+		>
+			<ComboboxTrigger ref={setButton} className="gwchat-model" aria-label="Model">
+				{current ? <ProviderIcon provider={PROVIDER_ICONS[current.provider]} /> : null}
+				<span className="gwchat-model-name">
+					<ComboboxValue>{() => props.value || 'No models'}</ComboboxValue>
+				</span>
+				<ChevronDown size={14} aria-hidden="true" />
+			</ComboboxTrigger>
+			<ComboboxContent anchor={button} className="gwchat-model-popup" align="start">
+				<div className="gwchat-model-search">
+					<Search size={14} aria-hidden="true" />
+					<ComboboxInput autoFocus aria-label="Search models" placeholder="Search models..." />
+				</div>
+				<ComboboxEmpty>No models match.</ComboboxEmpty>
+				<ComboboxList>
+					{props.models.map(item => (
+						<ComboboxItem
+							key={item.name}
+							value={item.name}
+							label={item.name}
+							keywords={[item.upstream, PROVIDER_LABELS[item.provider]]}
+						>
+							<ProviderIcon provider={PROVIDER_ICONS[item.provider]} />
+							<span className="gwchat-model-option">
+								<strong>{item.name}</strong>
+								<small>
+									{PROVIDER_LABELS[item.provider]}
+									{item.upstream !== item.name ? ` · ${item.upstream}` : ''}
+								</small>
+							</span>
+							<ComboboxItemIndicator>
+								<Check size={14} aria-hidden="true" />
+							</ComboboxItemIndicator>
+						</ComboboxItem>
+					))}
+				</ComboboxList>
+			</ComboboxContent>
+		</Combobox>
+	);
+}
+
 function ChatPanel(props: {
 	panel: Panel;
 	models: ModelOption[];
@@ -348,28 +458,16 @@ function ChatPanel(props: {
 }) {
 	const { panel, models } = props;
 	const model = models.find(item => item.name === panel.model);
-	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [codeOpen, setCodeOpen] = useState(false);
-	const popover = useDismissiblePopover<HTMLDivElement>(settingsOpen, () => setSettingsOpen(false));
 	const setSettings = (patch: Partial<ChatSettings>) =>
 		props.onChange(current => ({ ...current, settings: { ...current.settings, ...patch } }));
 
 	return (
 		<section className="gwchat-panel">
 			<header className="gwchat-panel-header">
-				<Dropdown
-					ariaLabel="Model"
-					className="gwchat-model"
+				<ModelPicker
 					value={panel.model}
-					placeholder="No models"
-					searchable
-					options={models.map(item => ({
-						value: item.name,
-						label: item.name,
-						description: `${PROVIDER_LABELS[item.provider]}${item.upstream !== item.name ? ` · ${item.upstream}` : ''}`,
-						icon: <ProviderIcon provider={PROVIDER_ICONS[item.provider]} />,
-						searchText: `${item.name} ${item.upstream} ${PROVIDER_LABELS[item.provider]}`
-					}))}
+					models={models}
 					onChange={name => {
 						localStorage.setItem('gatewayPlaygroundModel', name);
 						const next = models.find(item => item.name === name);
@@ -380,86 +478,75 @@ function ChatPanel(props: {
 						}));
 					}}
 				/>
-				<div className="gwchat-apis" role="tablist" aria-label="API">
+				<SegmentedControl
+					aria-label="API"
+					className="gwchat-apis"
+					value={panel.api}
+					disabled={panel.loading}
+					onValueChange={value => {
+						if (value) props.onChange(current => ({ ...current, api: value as ChatApi }));
+					}}
+				>
+					<SegmentedControlIndicator />
 					{CHAT_APIS.map(api => {
 						const supported = model?.apis.includes(api.value) ?? api.value === 'completions';
 						return (
-							<button
+							<SegmentedControlItem
 								key={api.value}
-								type="button"
-								role="tab"
-								aria-selected={panel.api === api.value}
-								disabled={!supported || panel.loading}
+								value={api.value}
+								disabled={!supported}
 								title={
 									supported
 										? `POST /v1${api.path}`
 										: `${panel.model} is not served on /v1${api.path}`
 								}
-								onClick={() => props.onChange(current => ({ ...current, api: api.value }))}
 							>
 								{api.label}
-							</button>
+							</SegmentedControlItem>
 						);
 					})}
-				</div>
+				</SegmentedControl>
 				<div className="gwchat-panel-actions">
-					<button
-						type="button"
-						className="gwchat-icon-button"
-						title="Code"
-						onClick={() => setCodeOpen(true)}
-					>
+					<IconButton label="Code" onClick={() => setCodeOpen(true)}>
 						<Code2 size={16} />
-					</button>
-					<div className="gwchat-popover-anchor" ref={popover}>
-						<button
-							type="button"
-							className="gwchat-icon-button"
-							title="Settings"
-							aria-expanded={settingsOpen}
-							onClick={() => setSettingsOpen(open => !open)}
-						>
+					</IconButton>
+					<Popover>
+						<IconButton label="Model settings" render={<PopoverTrigger />}>
 							<SlidersHorizontal size={16} />
-						</button>
-						{settingsOpen ? (
-							<SettingsPopover api={panel.api} settings={panel.settings} onChange={setSettings} />
-						) : null}
-					</div>
-					<button
-						type="button"
-						className="gwchat-icon-button"
-						title="Clear conversation"
+						</IconButton>
+						<PopoverContent side="bottom" align="end" className="gwchat-settings">
+							<SettingsForm api={panel.api} settings={panel.settings} onChange={setSettings} />
+						</PopoverContent>
+					</Popover>
+					<IconButton
+						label="Clear conversation"
 						disabled={panel.loading || panel.turns.length === 0}
 						onClick={() => props.onChange(current => ({ ...current, turns: [], error: null }))}
 					>
 						<Trash2 size={16} />
-					</button>
+					</IconButton>
 					{props.canAdd ? (
-						<button
-							type="button"
-							className="gwchat-icon-button"
-							title="Compare with another model"
-							onClick={props.onAdd}
-						>
+						<IconButton label="Compare with another model" onClick={props.onAdd}>
 							<Plus size={16} />
-						</button>
+						</IconButton>
 					) : null}
 					{props.canRemove ? (
-						<button
-							type="button"
-							className="gwchat-icon-button"
-							title="Close"
-							onClick={props.onRemove}
-						>
+						<IconButton label="Close" onClick={props.onRemove}>
 							<X size={16} />
-						</button>
+						</IconButton>
 					) : null}
 				</div>
 			</header>
 			<div className="gwchat-messages">
 				{panel.turns.length === 0 ? (
 					<div className="gwchat-empty">
-						<Bot size={28} />
+						<span className="gwchat-empty-icon">
+							{model ? (
+								<ProviderIcon provider={PROVIDER_ICONS[model.provider]} />
+							) : (
+								<Bot size={22} />
+							)}
+						</span>
 						<span>{panel.model || 'Pick a model'}</span>
 						<small>{CHAT_APIS.find(api => api.value === panel.api)?.label}</small>
 					</div>
@@ -483,12 +570,12 @@ function ChatPanel(props: {
 				) : null}
 				{panel.error ? <div className="gwchat-error">{panel.error}</div> : null}
 			</div>
-			{codeOpen ? <CodeDrawer panel={panel} onClose={() => setCodeOpen(false)} /> : null}
+			<CodeDrawer panel={panel} open={codeOpen} onOpenChange={setCodeOpen} />
 		</section>
 	);
 }
 
-function SettingsPopover(props: {
+function SettingsForm(props: {
 	api: ChatApi;
 	settings: ChatSettings;
 	onChange: (patch: Partial<ChatSettings>) => void;
@@ -496,13 +583,14 @@ function SettingsPopover(props: {
 	const { settings } = props;
 	const [stop, setStop] = useState('');
 	return (
-		<div className="gwchat-settings">
-			<h4>Model settings</h4>
-			<label>
+		<>
+			<PopoverTitle>Model settings</PopoverTitle>
+			<label className="gwchat-field">
 				<span>System prompt</span>
 				<textarea
 					rows={3}
 					value={settings.system}
+					placeholder="You are a helpful assistant."
 					onChange={event => props.onChange({ system: event.target.value })}
 				/>
 			</label>
@@ -531,7 +619,7 @@ function SettingsPopover(props: {
 				onChange={topP => props.onChange({ topP })}
 			/>
 			{props.api !== 'responses' ? (
-				<label>
+				<label className="gwchat-field">
 					<span>Stop sequences</span>
 					<div className="gwchat-chips">
 						{settings.stop.map(item => (
@@ -561,8 +649,8 @@ function SettingsPopover(props: {
 					</div>
 				</label>
 			) : null}
-			<small>Empty means the provider default.</small>
-		</div>
+			<small className="gwchat-settings-note">Empty means the provider default.</small>
+		</>
 	);
 }
 
@@ -575,11 +663,12 @@ function NumberSetting(props: {
 	onChange: (value: number | undefined) => void;
 }) {
 	return (
-		<label className="gwchat-number">
+		<div className="gwchat-number">
 			<span>
 				{props.label}
 				<input
 					inputMode="decimal"
+					aria-label={props.label}
 					value={props.value ?? ''}
 					placeholder="default"
 					onChange={event => {
@@ -588,21 +677,26 @@ function NumberSetting(props: {
 					}}
 				/>
 			</span>
-			<input
-				type="range"
+			<Slider
 				min={props.min}
 				max={props.max}
 				step={props.step}
 				value={props.value ?? props.min}
-				onChange={event => props.onChange(Number(event.target.value))}
-			/>
-		</label>
+				onValueChange={value => props.onChange(Array.isArray(value) ? value[0] : value)}
+			>
+				<SliderControl>
+					<SliderTrack>
+						<SliderIndicator />
+						<SliderThumb aria-label={props.label} />
+					</SliderTrack>
+				</SliderControl>
+			</Slider>
+		</div>
 	);
 }
 
-function CodeDrawer(props: { panel: Panel; onClose: () => void }) {
+function CodeDrawer(props: { panel: Panel; open: boolean; onOpenChange: (open: boolean) => void }) {
 	const { panel } = props;
-	const [tab, setTab] = useState<'curl' | 'python'>('curl');
 	const turns: ChatTurn[] = [
 		...panel.turns.map(({ role, text, images }) => ({ role, text, images })),
 		...(panel.turns.at(-1)?.role === 'user' ? [] : [{ role: 'user' as const, text: 'Say hi.' }])
@@ -613,26 +707,36 @@ function CodeDrawer(props: { panel: Panel; onClose: () => void }) {
 		`${window.location.origin}${gatewayModelsBase}`,
 		body
 	);
+	const api = CHAT_APIS.find(item => item.value === panel.api);
 	return (
-		<Drawer
-			title={`${panel.model} · ${CHAT_APIS.find(api => api.value === panel.api)?.label}`}
-			onClose={props.onClose}
-			dirty={false}
-		>
-			<div className="gwchat-apis" role="tablist">
-				{(['curl', 'python'] as const).map(item => (
-					<button
-						key={item}
-						type="button"
-						role="tab"
-						aria-selected={tab === item}
-						onClick={() => setTab(item)}
-					>
-						{item === 'curl' ? 'curl' : 'Python'}
-					</button>
-				))}
-			</div>
-			<CodeBlock code={snippets[tab]} />
+		<Drawer side="right" open={props.open} onOpenChange={props.onOpenChange}>
+			<DrawerBackdrop />
+			<DrawerContent className="gwchat-code-drawer">
+				<header>
+					<div>
+						<DrawerTitle>{panel.model}</DrawerTitle>
+						<DrawerDescription>
+							{api?.label} · POST {gatewayModelsBase}
+							{api?.path}
+						</DrawerDescription>
+					</div>
+					<DrawerClose data-variant="ghost" aria-label="Close">
+						<X size={16} />
+					</DrawerClose>
+				</header>
+				<Tabs defaultValue="curl">
+					<TabsList aria-label="Language">
+						<TabsTab value="curl">curl</TabsTab>
+						<TabsTab value="python">Python</TabsTab>
+					</TabsList>
+					<TabsPanel value="curl">
+						<CodeBlock code={snippets.curl} />
+					</TabsPanel>
+					<TabsPanel value="python">
+						<CodeBlock code={snippets.python} />
+					</TabsPanel>
+				</Tabs>
+			</DrawerContent>
 		</Drawer>
 	);
 }
@@ -641,10 +745,8 @@ function CodeBlock(props: { code: string }) {
 	const [copied, setCopied] = useState(false);
 	return (
 		<div className="gwchat-code">
-			<button
-				type="button"
-				className="gwchat-icon-button"
-				title="Copy"
+			<IconButton
+				label={copied ? 'Copied' : 'Copy'}
 				onClick={() => {
 					void navigator.clipboard.writeText(props.code);
 					setCopied(true);
@@ -652,7 +754,7 @@ function CodeBlock(props: { code: string }) {
 				}}
 			>
 				{copied ? <Check size={14} /> : <Copy size={14} />}
-			</button>
+			</IconButton>
 			<pre>{props.code}</pre>
 		</div>
 	);
@@ -692,21 +794,23 @@ function TurnView(props: { turn: Turn; streaming: boolean }) {
 	return (
 		<div className="gwchat-turn assistant">
 			{turn.reasoning ? (
-				<details className="gwchat-reasoning" open={props.streaming && !turn.text}>
-					<summary>
+				<Collapsible
+					className="gwchat-reasoning"
+					open={props.streaming && !turn.text ? true : undefined}
+				>
+					<CollapsibleTrigger>
 						<Brain size={14} />
 						{props.streaming && !turn.text ? 'Thinking...' : 'Reasoning'}
-					</summary>
-					<div>{turn.reasoning}</div>
-				</details>
+						<ChevronDown size={14} className="gwchat-reasoning-chevron" />
+					</CollapsibleTrigger>
+					<CollapsiblePanel>{turn.reasoning}</CollapsiblePanel>
+				</Collapsible>
 			) : null}
 			<Markdown text={turn.text} />
 			{!props.streaming ? (
 				<div className="gwchat-turn-meta">
-					<button
-						type="button"
-						className="gwchat-icon-button"
-						title="Copy"
+					<IconButton
+						label={copied ? 'Copied' : 'Copy'}
 						onClick={() => {
 							void navigator.clipboard.writeText(turn.text);
 							setCopied(true);
@@ -714,7 +818,7 @@ function TurnView(props: { turn: Turn; streaming: boolean }) {
 						}}
 					>
 						{copied ? <Check size={13} /> : <Copy size={13} />}
-					</button>
+					</IconButton>
 					<span>{meta.join(' · ')}</span>
 				</div>
 			) : null}
