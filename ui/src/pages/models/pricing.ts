@@ -1,5 +1,6 @@
 import type { CatalogRates, CatalogResponse, RateRow } from '@/api/pricesApi';
 import type { DumpModel, StoresDump } from '@/gateway-admin';
+import { uniqueModels } from '@/pages/models/dumpModels';
 
 export type PriceProvider =
 	| 'openai'
@@ -304,7 +305,7 @@ export function priceModels(dump: StoresDump, rates: RateIndex | null): PricedMo
 		return { provider: classify(endpoint.provider, host), upstream, pattern, formats };
 	}
 
-	return dump.models.map(model => {
+	return uniqueModels(dump.models).map(model => {
 		const r = resolve(model, 0);
 		const routes: RouteSupport[] =
 			r.provider === 'vercel' ? [{ route: 'native', native: true }] : routesFor(r.formats);

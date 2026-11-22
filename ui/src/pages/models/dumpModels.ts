@@ -16,3 +16,17 @@ export function requestableDumpModelNames(models: DumpModel[]) {
 	}
 	return [...names].sort((left, right) => left.localeCompare(right));
 }
+
+// ai21 fork: the iap listener (tools-host API) repeats every port-80 model, so list each name once, port 80's first.
+export function uniqueModels(models: DumpModel[]): DumpModel[] {
+	const rank = (m: DumpModel) =>
+		m.listenerKey.endsWith('.models') ? 2 : m.listenerKey.endsWith('.iap') ? 1 : 0;
+	const seen = new Set<string>();
+	return [...models]
+		.sort((a, b) => rank(a) - rank(b))
+		.filter(m => {
+			if (rank(m) === 1 && seen.has(m.name)) return false;
+			seen.add(m.name);
+			return true;
+		});
+}
