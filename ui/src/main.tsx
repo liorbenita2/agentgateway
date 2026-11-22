@@ -15,7 +15,7 @@ import { Shell } from '@/components/Shell';
 import { ApiDocsPage } from '@/pages/ApiDocs';
 import { CelPage } from '@/pages/Cel';
 import { ClientSetupPage } from '@/pages/ClientSetup';
-import { CostsPage } from '@/pages/Costs';
+import { GatewayCostsPage } from '@/pages/costs/GatewayCosts';
 import { DumpPoliciesPage } from '@/pages/DumpPolicies';
 import { LlmGetStartedPage, McpGetStartedPage, TrafficGetStartedPage } from '@/pages/GetStarted';
 import { GuardrailsPage } from '@/pages/Guardrails';
@@ -123,7 +123,7 @@ const guardrailsRoute = createRoute({
 const costsRoute = createRoute({
 	getParentRoute: () => appRoute,
 	path: '/llm/costs',
-	component: CostsPage
+	component: GatewayCostsPage
 });
 
 const keysRoute = createRoute({

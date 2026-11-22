@@ -1001,3 +1001,221 @@
 .api-docs-panel .swagger-ui .opblock .opblock-section-header label span {
 	color: var(--muted);
 }
+
+/* Costs page; series slots validated for both themes (CVD and normal-vision separation). */
+:root {
+	--cost-series-1: #2a78d6;
+	--cost-series-2: #eb6834;
+	--cost-series-3: #1baf7a;
+	--cost-series-4: #eda100;
+	--cost-series-5: #e87ba4;
+	--cost-series-6: #008300;
+	--cost-series-7: #6250d6;
+	--cost-series-other: #98a2b3;
+}
+:root[data-theme='dark'] {
+	--cost-series-1: #3987e5;
+	--cost-series-2: #d95926;
+	--cost-series-3: #199e70;
+	--cost-series-4: #c98500;
+	--cost-series-5: #d55181;
+	--cost-series-6: #0ca30c;
+	--cost-series-7: #9085e9;
+	--cost-series-other: #667085;
+}
+.costs-control-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 16px;
+}
+.costs-group-by {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--muted);
+	font-size: 13px;
+}
+.costs-chips {
+	display: flex;
+	flex: 1;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	min-width: 200px;
+	color: var(--muted);
+}
+.costs-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 4px 3px 10px;
+	border: 1px solid var(--line-strong);
+	border-radius: 999px;
+	background: var(--surface-2);
+	font-size: 12px;
+}
+.costs-chip button,
+.costs-filter-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+}
+.costs-chip button:hover,
+.costs-filter-button:hover {
+	background: var(--accent-soft);
+	color: var(--primary);
+}
+.costs-stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 12px;
+}
+.costs-stat {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 14px 16px;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--surface);
+}
+.costs-stat span {
+	color: var(--muted);
+	font-size: 12px;
+}
+.costs-stat strong {
+	font-size: 22px;
+	font-variant-numeric: tabular-nums;
+}
+.costs-title {
+	margin: 0 0 12px;
+	font-size: 14px;
+	font-weight: 600;
+}
+.costs-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	margin-bottom: 8px;
+	color: var(--text);
+	font-size: 12px;
+}
+.costs-legend span,
+.costs-key {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.costs-legend i,
+.costs-key i,
+.costs-tooltip i {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 3px;
+	flex: none;
+}
+.costs-chart {
+	height: 280px;
+}
+.costs-tooltip {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 180px;
+	padding: 8px 10px;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: var(--surface);
+	color: var(--text);
+	font-size: 12px;
+	box-shadow: var(--ui-shadow);
+}
+.costs-tooltip div {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+.costs-tooltip b {
+	margin-left: auto;
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+}
+.costs-split {
+	display: grid;
+	grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+	gap: 16px;
+}
+@media (max-width: 1100px) {
+	.costs-split {
+		grid-template-columns: 1fr;
+	}
+}
+.costs-table td.numeric,
+.costs-table th.numeric {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+.costs-table td:first-child {
+	min-width: 0;
+}
+.costs-mono {
+	font-family: var(--mono);
+	font-size: 12px;
+	white-space: nowrap;
+}
+.costs-user {
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.costs-sources {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.costs-sources li {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 2px 8px;
+	align-items: center;
+}
+.costs-sources small {
+	grid-column: 1 / -1;
+	color: var(--muted);
+}
+.costs-source-amount {
+	justify-self: end;
+	font-variant-numeric: tabular-nums;
+}
+.costs-source {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 999px;
+	background: var(--surface-3);
+	color: var(--text);
+	font-size: 11px;
+	font-weight: 600;
+}
+.costs-source-catalog {
+	background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+.costs-source-gateway {
+	background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.costs-source-unpriced {
+	background: color-mix(in srgb, var(--warn) 22%, transparent);
+}

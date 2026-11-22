@@ -3,19 +3,20 @@ import { test } from 'node:test';
 
 import { isAi21Page } from '#ai21Pages.ts';
 
-test('only models, chat playground and API pages are shown', () => {
+test('only models, chat playground, API and costs pages are shown', () => {
 	for (const path of [
 		'/llm/models',
 		'/llm/models/',
 		'/llm/playground',
 		'/llm/api',
+		'/llm/costs',
 		'/llm/models/x'
 	]) {
 		assert.equal(isAi21Page(path), true, path);
 	}
 	for (const path of [
 		'/',
-		'/llm/costs',
+		'/llm/costsx',
 		'/traffic/routes',
 		'/settings/ui',
 		'/llm/modelsx',
